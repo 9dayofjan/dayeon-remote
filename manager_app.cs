@@ -680,24 +680,47 @@ public class RemoteViewerForm : Form {
     }
 
     private async Task FetchZoomFrameSingleAsync(string pcId, string monIdx) {
-        try {
-            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(serverUrl + "/api/snapshot?pc=" + Uri.EscapeDataString(pcId) + "&monitor=" + monIdx + "&t=" + DateTime.UtcNow.Ticks);
-            req.Timeout = 1200;
-            req.KeepAlive = true;
-            req.Proxy = null;
-            using (var res = await req.GetResponseAsync())
-            using (var stream = res.GetResponseStream()) {
-                Bitmap newBmp = CreateSafeBitmapFromStream(stream);
-                if (newBmp != null) {
-                    lock (bmpLock) {
-                        if (currentZoomBitmap != null) currentZoomBitmap.Dispose();
-                        currentZoomBitmap = newBmp;
-                    }
-                    UpdateFps();
-                    try { renderCanvas.BeginInvoke((Action)(() => renderCanvas.Invalidate())); } catch { }
+        var pc = pcList.Find(p => p.Id == pcId);
+        string lanIp = (pc != null && !string.IsNullOrEmpty(pc.LanIp)) ? pc.LanIp : "";
+        int lanPort = (pc != null && pc.LanPort > 0) ? pc.LanPort : 8001;
+        bool isLanValid = !string.IsNullOrEmpty(lanIp) && lanIp != "127.0.0.1" && lanIp != "localhost" && !lanIp.StartsWith("127.");
+
+        Bitmap newBmp = null;
+        if (isLanValid) {
+            try {
+                string lanUrl = "http://" + lanIp + ":" + lanPort + "/api/snapshot?monitor=" + monIdx + "&t=" + DateTime.UtcNow.Ticks;
+                HttpWebRequest lanReq = (HttpWebRequest)WebRequest.Create(lanUrl);
+                lanReq.Timeout = 400;
+                lanReq.KeepAlive = true;
+                lanReq.Proxy = null;
+                using (var res = await lanReq.GetResponseAsync())
+                using (var stream = res.GetResponseStream()) {
+                    newBmp = CreateSafeBitmapFromStream(stream);
                 }
+            } catch { }
+        }
+
+        if (newBmp == null) {
+            try {
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(serverUrl + "/api/snapshot?pc=" + Uri.EscapeDataString(pcId) + "&monitor=" + monIdx + "&t=" + DateTime.UtcNow.Ticks);
+                req.Timeout = 1200;
+                req.KeepAlive = true;
+                req.Proxy = null;
+                using (var res = await req.GetResponseAsync())
+                using (var stream = res.GetResponseStream()) {
+                    newBmp = CreateSafeBitmapFromStream(stream);
+                }
+            } catch { }
+        }
+
+        if (newBmp != null) {
+            lock (bmpLock) {
+                if (currentZoomBitmap != null) currentZoomBitmap.Dispose();
+                currentZoomBitmap = newBmp;
             }
-        } catch { }
+            UpdateFps();
+            try { renderCanvas.BeginInvoke((Action)(() => renderCanvas.Invalidate())); } catch { }
+        }
     }
 
     private void StopZoomStream() {
@@ -853,25 +876,49 @@ public class RemoteViewerForm : Form {
 
         Parallel.ForEach(listCopy, new ParallelOptions { MaxDegreeOfParallelism = 12 }, pc => {
             if (isZoomMode) return;
-            try {
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(serverUrl + "/api/snapshot?pc=" + Uri.EscapeDataString(pc.Id) + "&monitor=" + pc.ActiveMonitor + "&t=" + DateTime.UtcNow.Ticks);
-                req.Timeout = 1500;
-                req.KeepAlive = true;
-                req.Proxy = null;
-                using (var res = req.GetResponse())
-                using (var stream = res.GetResponseStream()) {
-                    Bitmap bmp = CreateSafeBitmapFromStream(stream);
-                    if (bmp != null) {
-                        Bitmap old;
-                        if (thumbnailCache.TryGetValue(pc.Id, out old)) {
-                            thumbnailCache[pc.Id] = bmp;
-                            try { old.Dispose(); } catch { }
-                        } else {
-                            thumbnailCache[pc.Id] = bmp;
-                        }
+            string mon = string.IsNullOrEmpty(pc.ActiveMonitor) ? "0" : pc.ActiveMonitor;
+            bool isLanValid = !string.IsNullOrEmpty(pc.LanIp) && pc.LanIp != "127.0.0.1" && pc.LanIp != "localhost" && !pc.LanIp.StartsWith("127.");
+            Bitmap bmp = null;
+
+            // 1. 사내 LAN 직통 초고속 스냅샷 우선 시도 (0.2ms)
+            if (isLanValid) {
+                try {
+                    int port = pc.LanPort > 0 ? pc.LanPort : 8001;
+                    string lanUrl = "http://" + pc.LanIp + ":" + port + "/api/snapshot?monitor=" + mon + "&t=" + DateTime.UtcNow.Ticks;
+                    HttpWebRequest lanReq = (HttpWebRequest)WebRequest.Create(lanUrl);
+                    lanReq.Timeout = 400;
+                    lanReq.KeepAlive = true;
+                    lanReq.Proxy = null;
+                    using (var res = lanReq.GetResponse())
+                    using (var stream = res.GetResponseStream()) {
+                        bmp = CreateSafeBitmapFromStream(stream);
                     }
+                } catch { }
+            }
+
+            // 2. 사내 LAN 실패 시 클라우드 서버에서 스냅샷 수신
+            if (bmp == null) {
+                try {
+                    HttpWebRequest req = (HttpWebRequest)WebRequest.Create(serverUrl + "/api/snapshot?pc=" + Uri.EscapeDataString(pc.Id) + "&monitor=" + mon + "&t=" + DateTime.UtcNow.Ticks);
+                    req.Timeout = 1500;
+                    req.KeepAlive = true;
+                    req.Proxy = null;
+                    using (var res = req.GetResponse())
+                    using (var stream = res.GetResponseStream()) {
+                        bmp = CreateSafeBitmapFromStream(stream);
+                    }
+                } catch { }
+            }
+
+            if (bmp != null) {
+                Bitmap old;
+                if (thumbnailCache.TryGetValue(pc.Id, out old)) {
+                    thumbnailCache[pc.Id] = bmp;
+                    try { old.Dispose(); } catch { }
+                } else {
+                    thumbnailCache[pc.Id] = bmp;
                 }
-            } catch { }
+            }
         });
 
         if (!isZoomMode) {

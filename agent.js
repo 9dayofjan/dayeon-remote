@@ -375,7 +375,7 @@ console.log('==================================================\n');
                 if (isCurrentZoomFocused) {
                     fastcapDaemon.stdin.write('fps 60\nquality 70\n');
                 } else {
-                    fastcapDaemon.stdin.write('fps 4\nquality 55\n');
+                    fastcapDaemon.stdin.write('fps 12\nquality 60\n');
                 }
             } catch(e) {}
         }
@@ -389,10 +389,8 @@ console.log('==================================================\n');
                     fastcapDaemon = spawn(fastcapPath, ['daemon', targetMonitor || '0'], { stdio: ['pipe', 'pipe', 'ignore'] });
                     fastcapMonitor = targetMonitor || '0';
 
-                    // 초기 상태 적용
-                    if (isCurrentZoomFocused) {
-                        try { fastcapDaemon.stdin.write('fps 30\nquality 75\n'); } catch(e) {}
-                    }
+                    // 초기 상태 적용 (12 FPS 기본)
+                    try { fastcapDaemon.stdin.write('fps 12\nquality 60\n'); } catch(e) {}
 
                     let daemonBuf = Buffer.alloc(0);
                     fastcapDaemon.stdout.on('data', (chunk) => {
@@ -403,31 +401,33 @@ console.log('==================================================\n');
                                 streamUploadReq = null;
                                 scheduleStreamReconnect();
                             }
+                        } else {
+                            scheduleStreamReconnect();
                         }
 
-                        // LAN 직통 클라이언트에게 0ms 로컬 브로드캐스트
-                        if (lanWsClients.length > 0) {
-                            daemonBuf = Buffer.concat([daemonBuf, chunk]);
-                            while (daemonBuf.length >= 12) {
-                                const magicIdx = daemonBuf.indexOf(Buffer.from([0x53, 0x43, 0x41, 0x50]));
-                                if (magicIdx === -1) {
-                                    if (daemonBuf.length > 3) daemonBuf = daemonBuf.slice(daemonBuf.length - 3);
-                                    break;
-                                }
-                                if (magicIdx > 0) daemonBuf = daemonBuf.slice(magicIdx);
-                                if (daemonBuf.length < 12) break;
+                        // 항상 최신 캡처 프레임을 파싱하여 latestCapturedFrame 갱신 (0.2ms LAN 스냅샷 완벽 대응)
+                        daemonBuf = Buffer.concat([daemonBuf, chunk]);
+                        while (daemonBuf.length >= 12) {
+                            const magicIdx = daemonBuf.indexOf(Buffer.from([0x53, 0x43, 0x41, 0x50]));
+                            if (magicIdx === -1) {
+                                if (daemonBuf.length > 3) daemonBuf = daemonBuf.slice(daemonBuf.length - 3);
+                                break;
+                            }
+                            if (magicIdx > 0) daemonBuf = daemonBuf.slice(magicIdx);
+                            if (daemonBuf.length < 12) break;
 
-                                const len = daemonBuf.readUInt32LE(8);
-                                if (len <= 0 || len > 10 * 1024 * 1024) {
-                                    daemonBuf = daemonBuf.slice(4);
-                                    continue;
-                                }
-                                if (daemonBuf.length < 12 + len) break;
+                            const len = daemonBuf.readUInt32LE(8);
+                            if (len <= 0 || len > 10 * 1024 * 1024) {
+                                daemonBuf = daemonBuf.slice(4);
+                                continue;
+                            }
+                            if (daemonBuf.length < 12 + len) break;
 
-                                const jpegBuf = daemonBuf.slice(12, 12 + len);
-                                daemonBuf = daemonBuf.slice(12 + len);
-                                latestCapturedFrame = jpegBuf;
+                            const jpegBuf = daemonBuf.slice(12, 12 + len);
+                            daemonBuf = daemonBuf.slice(12 + len);
+                            latestCapturedFrame = jpegBuf;
 
+                            if (lanWsClients.length > 0) {
                                 const wsFrame = makeWsBinaryFrame(jpegBuf);
                                 for (const c of lanWsClients) {
                                     if (c.socket && !c.socket.destroyed && c.socket.writable) {
