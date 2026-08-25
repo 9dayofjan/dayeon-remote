@@ -1,0 +1,3589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>다연코퍼레이션</title>
+    <script>
+        // 🛡️ 드래그 및 텍스트 선택 방지 보안
+        (function() {
+            document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; }, true);
+            document.addEventListener('selectstart', function(e) {
+                if (e.target && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault(); return false;
+                }
+            }, true);
+        })();
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        html, body { width: 100%; height: 100%; height: 100dvh; background-color: #0b0f19; color: #f8fafc; overflow: hidden; user-select: none; }
+        body { display: flex; flex-direction: column; }
+        
+        header { background-color: #111827; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; flex-shrink: 0; height: 44px; }
+        .logo { display: flex; align-items: center; gap: 6px; font-size: 1.05rem; font-weight: 800; color: #c084fc; white-space: nowrap; letter-spacing: -0.3px; }
+        .grid-selector { display: flex; gap: 4px; background: #1f2937; padding: 2px; border-radius: 6px; }
+        .grid-btn { background: transparent; color: #9ca3af; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; }
+        .grid-btn.active { background: #3b82f6; color: white; }
+        .stats-bar { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #9ca3af; white-space: nowrap; }
+        .stat-badge { color: #22c55e; font-weight: bold; }
+        .header-msg-btn { background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+        .header-msg-btn:hover { background: #475569; color: #38bdf8; }
+
+        /* 모바일 20대 관제 바 */
+        .mobile-bar { display: none; background: #0f172a; border-bottom: 1px solid #1f2937; padding: 6px 8px; flex-direction: column; gap: 6px; flex-shrink: 0; }
+        .mobile-mode-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+        .mobile-btn-group { display: flex; gap: 4px; }
+        .mobile-pill-btn { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .mobile-pill-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .patrol-btn { background: #065f46; color: #a7f3d0; border: 1px solid #059669; }
+        .patrol-btn.active { background: #10b981; color: #022c22; font-weight: bold; animation: pulse-patrol 1.5s infinite; }
+        @keyframes pulse-patrol { 0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); } 50% { box-shadow: 0 0 0 4px rgba(16,185,129,0); } }
+
+        .mobile-pc-chips { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+        .mobile-pc-chips::-webkit-scrollbar { display: none; }
+        .pc-chip { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+        .pc-chip.active { background: #38bdf8; color: #0f172a; font-weight: bold; border-color: #38bdf8; }
+
+        main { flex: 1; padding: 6px; overflow: hidden; min-height: 0; }
+        .cctv-grid { display: grid; gap: 6px; width: 100%; height: 100%; overflow-y: auto; }
+        .grid-auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); grid-auto-rows: 190px; }
+        .grid-20 { grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(4, 1fr); }
+        .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+        .grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        
+        .mobile-grid-1col { grid-template-columns: 1fr !important; grid-auto-rows: 200px !important; }
+        .mobile-grid-2col { grid-template-columns: repeat(2, 1fr) !important; grid-auto-rows: 130px !important; }
+
+        .pc-tile { background: #111827; border: 1px solid #1f2937; border-radius: 6px; position: relative; display: flex; flex-direction: column; overflow: hidden; cursor: pointer; transition: border-color 0.2s; }
+        .pc-tile:hover { border-color: #38bdf8; }
+        
+        /* 🚨 5번: 화면 멈춤 감지 애니메이션 테두리 */
+        .pc-tile.freeze-alert { border: 2px solid #ef4444 !important; animation: pulse-freeze 1.2s infinite; }
+        @keyframes pulse-freeze { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 50% { box-shadow: 0 0 10px 3px rgba(239,68,68,0.9); } }
+        .freeze-badge { background: #ef4444; color: white; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-weight: bold; animation: blink-badge 0.8s infinite alternate; }
+        @keyframes blink-badge { from { opacity: 0.7; } to { opacity: 1; } }
+
+        .tile-header { background: rgba(17,24,39,0.95); padding: 4px 8px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+        .pc-status-dot { width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e; display: inline-block; margin-right: 4px; }
+        .tile-video-wrap { flex: 1; background: #000; position: relative; overflow: hidden; min-height: 0; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .tile-video-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+        .tile-overlay-btns { position: absolute; bottom: 4px; right: 4px; display: flex; gap: 4px; z-index: 5; }
+        .mini-btn { background: rgba(15,23,42,0.9); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-weight: 600; }
+        
+        /* ⚙️ 톱니바퀴 클릭 시 오른쪽으로 촤라락 펼쳐지는 슬라이드 액션 툴바 */
+        .tile-gear-drawer {
+            position: absolute;
+            bottom: 2px;
+            left: 2px;
+            right: 2px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(12px);
+            border: 1.5px solid #38bdf8;
+            border-radius: 6px;
+            padding: 2px 4px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2px;
+            z-index: 10;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9), 0 0 14px rgba(56, 189, 248, 0.35);
+            animation: slide-drawer-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: left center;
+        }
+        @keyframes slide-drawer-right {
+            from { opacity: 0; transform: scaleX(0.3) translateX(-20px); }
+            to { opacity: 1; transform: scaleX(1) translateX(0); }
+        }
+        .drawer-btn {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #334155;
+            padding: 3px 2px;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 1px;
+            transition: all 0.12s ease;
+            flex: 1;
+            min-width: 0;
+            justify-content: center;
+        }
+        .drawer-btn:hover { transform: translateY(-1px); }
+        .drawer-btn.file-btn { border-color: #38bdf8; color: #38bdf8; }
+        .drawer-btn.file-btn:hover { background: rgba(56, 189, 248, 0.22); }
+        .drawer-btn.kill-btn { border-color: #facc15; color: #facc15; }
+        .drawer-btn.kill-btn:hover { background: rgba(250, 204, 21, 0.22); }
+        .drawer-btn.reboot-btn { border-color: #fb923c; color: #fb923c; }
+        .drawer-btn.reboot-btn:hover { background: rgba(251, 146, 60, 0.22); }
+        .drawer-btn.shutdown-btn { border-color: #f87171; color: #f87171; }
+        .drawer-btn.shutdown-btn:hover { background: rgba(239, 68, 68, 0.25); }
+        .drawer-btn.update-btn { border-color: #a855f7; color: #c084fc; font-size: 0.66rem; }
+        .drawer-btn.update-btn:hover { background: rgba(168, 85, 247, 0.22); }
+        .drawer-close-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 1px 3px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .drawer-close-btn:hover { color: #fff; background: #334155; }
+
+        /* ⚙️ 줌 모달 상단 톱니바퀴 촤라락 슬라이드 툴바 */
+        .zoom-gear-drawer {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(12px);
+            border: 1.5px solid #38bdf8;
+            border-radius: 8px;
+            padding: 4px 10px;
+            margin-bottom: 2px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            z-index: 25;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.9), 0 0 14px rgba(56, 189, 248, 0.35);
+            animation: slide-drawer-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: center center;
+        }
+        .empty-state { grid-column: 1 / -1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #9ca3af; gap: 8px; height: 100%; font-size: 0.9rem; }
+
+        /* 📱 모바일 세로/가로 맞춤형 대형 줌 관제 모달 */
+        .zoom-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: rgba(11,15,25,0.99); z-index: 99999; display: none; flex-direction: column; padding: 2px; box-sizing: border-box; }
+        .zoom-modal.active { display: flex; }
+        
+        /* 헤더: 화면 정중앙에 모아서 마우스 이동 최소화 */
+        .zoom-header { display: flex; justify-content: center; align-items: center; background: #111827; padding: 4px 10px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 2px; flex-shrink: 0; gap: 6px; height: 38px; width: fit-content; margin-left: auto; margin-right: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.6); position: relative; z-index: 1000; pointer-events: auto; }
+        
+        .close-btn { background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.78rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; z-index: 1001; pointer-events: auto; }
+        .close-btn:hover { background: #dc2626; }
+
+        .pc-nav-badge { display: flex; align-items: center; gap: 2px; background: #0f172a; padding: 2px 4px; border-radius: 4px; border: 1px solid #334155; flex-shrink: 0; }
+        .zoom-nav-btn { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 3px 6px; border-radius: 3px; font-size: 0.72rem; cursor: pointer; font-weight: bold; }
+        .zoom-nav-btn:hover { background: #334155; color: white; }
+
+        .monitor-selector { display: flex; gap: 2px; background: #0f172a; padding: 2px; border-radius: 4px; border: 1px solid #334155; flex-shrink: 0; }
+        .monitor-btn { background: transparent; color: #cbd5e1; border: none; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; cursor: pointer; font-weight: 700; white-space: nowrap; }
+        .monitor-btn.active { background: #38bdf8; color: #0f172a; }
+
+        .record-btn { background: #1f2937; color: #f8fafc; border: 1px solid #374151; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; white-space: nowrap; flex-shrink: 0; }
+        .record-btn.recording { background: #991b1b; border-color: #ef4444; color: #fff; animation: pulse-rec 1.2s infinite; }
+        @keyframes pulse-rec { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); } 50% { box-shadow: 0 0 0 4px rgba(16,185,129,0); } }
+
+        .zoom-body { flex: 1; width: 100%; height: calc(100% - 40px); background: #000; border-radius: 4px; border: 1px solid #1f2937; position: relative; overflow: hidden; min-height: 0; }
+        .zoom-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; user-select: none; -webkit-user-drag: none; pointer-events: none; will-change: opacity, transform; transform: translateZ(0); backface-visibility: hidden; image-rendering: -webkit-optimize-contrast; transition: opacity 0.15s ease-in-out; }
+        .zoom-layer.active-layer { opacity: 1; z-index: 2; }
+        .zoom-layer.inactive-layer { opacity: 0; z-index: 1; }
+        .zoom-touch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: default; z-index: 20; touch-action: none; }
+        .control-toggle-btn { background: #1e293b; color: #94a3b8; border: 1px solid #475569; padding: 4px 10px; border-radius: 4px; font-size: 0.76rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .control-toggle-btn.active { background: #065f46 !important; border-color: #10b981 !important; color: #a7f3d0 !important; box-shadow: 0 0 10px rgba(16,185,129,0.5); animation: pulse-ctrl 1.5s infinite; }
+        @keyframes pulse-ctrl { 0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 50% { box-shadow: 0 0 8px 2px rgba(16,185,129,0.9); } }
+
+        .draw-color-btn { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; padding: 0; outline: none; transition: transform 0.15s; }
+        .draw-color-btn.active { box-shadow: 0 0 0 2px #38bdf8; transform: scale(1.25); }
+        .stamp-btn { font-size: 1.1rem !important; padding: 2px 6px !important; border-color: #7c3aed !important; background: #1e1b4b !important; transition: transform 0.15s, box-shadow 0.15s; }
+        .stamp-btn:hover { transform: scale(1.2); box-shadow: 0 0 8px rgba(139,92,246,0.6); }
+        .stamp-btn.stamp-active { background: #7c3aed !important; box-shadow: 0 0 12px rgba(139,92,246,0.8); animation: pulse-stamp 1s infinite; }
+        @keyframes pulse-stamp { 0%,100% { box-shadow: 0 0 4px rgba(139,92,246,0.5); } 50% { box-shadow: 0 0 14px rgba(139,92,246,0.9); } }
+        .annotation-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; }
+
+        .click-ripple { position: fixed; width: 20px; height: 20px; border-radius: 50%; background: rgba(34,197,94,0.85); border: 2px solid #fff; pointer-events: none; transform: translate(-50%,-50%); animation: ripple-anim 0.4s ease-out forwards; z-index: 99999; }
+        @keyframes ripple-anim { 0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; } }
+
+        /* 💬 6번: 공지 팝업 전송 모달 */
+        .msg-modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 999999; display: none; justify-content: center; align-items: center; }
+        .msg-modal-backdrop.active { display: flex; }
+        .msg-modal-box { background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; width: 90%; max-width: 420px; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 12px; }
+        .msg-modal-title { font-size: 1rem; font-weight: bold; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
+        .msg-target-select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; }
+        .msg-textarea { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-size: 0.9rem; resize: none; height: 80px; outline: none; }
+        .msg-textarea:focus { border-color: #38bdf8; }
+        .msg-btn-row { display: flex; justify-content: flex-end; gap: 8px; }
+        .msg-send-btn { background: #0284c7; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .msg-send-btn:hover { background: #0369a1; }
+        .msg-cancel-btn { background: #334155; color: #cbd5e1; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+        /* 🔮 커스텀 다크 컨텍스트 메뉴 */
+        .custom-menu {
+            position: fixed;
+            background: rgba(15, 23, 42, 0.98) !important;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1.5px solid #38bdf8 !important;
+            border-radius: 10px;
+            padding: 6px;
+            min-width: 230px;
+            z-index: 2147483647 !important;
+            box-shadow: 0 14px 35px rgba(0, 0, 0, 0.9), 0 0 20px rgba(56, 189, 248, 0.25) !important;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+            animation: menu-fade-in 0.12s ease-out;
+            pointer-events: auto !important;
+        }
+        @keyframes menu-fade-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .custom-menu-header {
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            font-weight: bold;
+            color: #38bdf8;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 6px;
+        }
+        .custom-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            font-size: 0.84rem;
+            color: #f1f5f9;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.12s ease;
+            font-weight: 500;
+            user-select: none;
+        }
+        .custom-menu-item:hover {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            transform: translateX(3px);
+        }
+        .custom-menu-item.danger {
+            color: #f87171;
+        }
+        .custom-menu-item.danger:hover {
+            background: rgba(239, 68, 68, 0.22);
+            color: #ef4444;
+        }
+        .custom-menu-divider {
+            height: 1px;
+            background: rgba(51, 65, 85, 0.7);
+            margin: 4px 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid-selector { display: none; }
+            .mobile-bar { display: flex; }
+        }
+
+        @media (orientation: landscape) and (max-height: 550px) {
+            header { display: none; }
+            .mobile-bar { display: none; }
+            .zoom-modal { padding: 0; }
+            .zoom-header { height: 30px; padding: 2px 6px; margin-bottom: 0; border-radius: 0; border: none; border-bottom: 1px solid #1f2937; }
+            .zoom-body { height: calc(100% - 30px); border-radius: 0; border: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 🔐 관리자/대표님 전용 마스터 로그인 오버레이 -->
+    <div id="authOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,15,30,0.92);backdrop-filter:blur(8px);z-index:999999;justify-content:center;align-items:center;">
+        <div style="background:#1e293b;border:1px solid #3b82f6;box-shadow:0 10px 25px rgba(0,0,0,0.6);border-radius:16px;padding:30px;width:90%;max-width:380px;text-align:center;color:#fff;">
+            <div style="font-size:2.2rem;margin-bottom:10px;">🏢</div>
+            <h2 style="margin:0 0 8px 0;font-size:1.25rem;font-weight:bold;color:#f8fafc;">다연코퍼레이션 원격 관제</h2>
+            <p style="margin:0 0 20px 0;font-size:0.85rem;color:#94a3b8;">관리자 / 대표님 비밀번호를 입력해 주세요.</p>
+            <form onsubmit="event.preventDefault(); submitAuth();">
+                <input type="password" id="authPassInput" placeholder="비밀번호 입력 (기본: 1234)" style="width:100%;padding:12px;box-sizing:border-box;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;font-size:1rem;text-align:center;letter-spacing:2px;outline:none;margin-bottom:12px;" autofocus>
+                <div id="authError" style="color:#ef4444;font-size:0.8rem;min-height:18px;margin-bottom:12px;"></div>
+                <button type="submit" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:bold;cursor:pointer;transition:background 0.2s;">로그인</button>
+            </form>
+        </div>
+    </div>
+
+    <header>
+        <div class="logo"><span>다연코퍼레이션</span></div>
+        <div class="stats-bar">
+            <span>연결: <strong class="stat-badge" id="onlinePcs">0대 ONLINE</strong></span>
+            <span>관리자: <strong class="stat-badge" id="onlineAdmins" style="background:#1e1b4b;border-color:#6366f1;color:#a5b4fc;">👤 1명 접속</strong></span>
+            <button class="header-msg-btn" onclick="openMsgModal('all')">💬 전체 공지</button>
+            <button class="header-msg-btn" style="background:#065f46;border:1px solid #10b981;color:#a7f3d0;font-weight:bold;" onclick="triggerAutoUpdateAll()">🚀 전체 PC 업데이트</button>
+            <span id="versionBadge" style="font-size:0.75rem;color:#38bdf8;font-weight:bold;background:#0f172a;border:1px solid #0284c7;padding:3px 8px;border-radius:12px;white-space:nowrap;">UPDATE (2026-08-24 20:42:33)</span>
+            <button id="tunnelLinkBtn" style="display:inline-block;background:linear-gradient(135deg, #4f46e5, #7c3aed);border:1px solid #c084fc;color:#ffffff;font-size:0.78rem;padding:4px 12px;border-radius:14px;font-weight:bold;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(124,58,237,0.3);transition:all 0.2s;" onclick="copyTunnelUrl()" title="대표님/외부 접속 링크 복사">🌐 📋 대표님 접속링크 복사</button>
+            <button style="background:#334155;border:1px solid #64748b;color:#e2e8f0;font-size:0.75rem;padding:4px 8px;border-radius:12px;font-weight:bold;cursor:pointer;white-space:nowrap;" onclick="openPasswordChangeModal()" title="관리자 비밀번호 변경">🔑 암호설정</button>
+        </div>
+        <div class="grid-selector">
+            <button class="grid-btn active" id="gridBtn20" onclick="setGrid(20)">전체 PC 보기</button>
+            <button class="grid-btn" id="gridBtnAuto" onclick="setGrid('auto')">접속 PC만</button>
+            <button class="grid-btn" id="gridBtn4" onclick="setGrid(4)">4분할</button>
+            <button class="grid-btn" id="gridBtn1" onclick="setGrid(1)">1분할</button>
+        </div>
+    </header>
+
+    <!-- 모바일 전용 20대 관제 바 -->
+    <div class="mobile-bar" id="mobileBar">
+        <div class="mobile-mode-row">
+            <div class="mobile-btn-group">
+                <button class="mobile-pill-btn active" id="mobView1Col" onclick="setMobileView('1col')">📱 1열 뷰</button>
+                <button class="mobile-pill-btn" id="mobView2Col" onclick="setMobileView('2col')">⚡ 2열 요약</button>
+            </div>
+            <button class="mobile-pill-btn patrol-btn" id="patrolBtn" onclick="togglePatrol()">🔄 5초 자동순찰</button>
+        </div>
+        <div class="mobile-pc-chips" id="mobilePcChips">
+            <span class="pc-chip active" onclick="filterMobilePc('all')">전체보기</span>
+        </div>
+    </div>
+
+    <main>
+        <div class="cctv-grid grid-20" id="cctvGrid">
+            <div class="pc-tile" id="slot-0" style="display:flex;">
+                <div class="tile-header" id="slot-header-0">
+                    <div id="slot-title-0"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 1</strong></div>
+                    <span id="slot-ip-0" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-0">
+                    <img id="slot-img-0" style="display:none;" draggable="false">
+                    <div id="slot-empty-0" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 1 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-0" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-0" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-0" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-0" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-0" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-0">
+                        <div class="drawer-row" id="drawer-main-0" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-0" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-0" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-0" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-0" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-0" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-0" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-0" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-0" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-0" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-0" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-0" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-0" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-0" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-1" style="display:flex;">
+                <div class="tile-header" id="slot-header-1">
+                    <div id="slot-title-1"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 2</strong></div>
+                    <span id="slot-ip-1" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-1">
+                    <img id="slot-img-1" style="display:none;" draggable="false">
+                    <div id="slot-empty-1" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 2 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-1" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-1" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-1" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-1" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-1" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-1">
+                        <div class="drawer-row" id="drawer-main-1" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-1" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-1" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-1" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-1" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-1" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-1" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-1" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-1" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-1" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-1" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-1" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-1" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-1" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-2" style="display:flex;">
+                <div class="tile-header" id="slot-header-2">
+                    <div id="slot-title-2"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 3</strong></div>
+                    <span id="slot-ip-2" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-2">
+                    <img id="slot-img-2" style="display:none;" draggable="false">
+                    <div id="slot-empty-2" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 3 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-2" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-2" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-2" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-2" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-2" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-2">
+                        <div class="drawer-row" id="drawer-main-2" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-2" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-2" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-2" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-2" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-2" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-2" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-2" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-2" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-2" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-2" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-2" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-2" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-2" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-3" style="display:flex;">
+                <div class="tile-header" id="slot-header-3">
+                    <div id="slot-title-3"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 4</strong></div>
+                    <span id="slot-ip-3" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-3">
+                    <img id="slot-img-3" style="display:none;" draggable="false">
+                    <div id="slot-empty-3" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 4 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-3" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-3" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-3" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-3" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-3" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-3">
+                        <div class="drawer-row" id="drawer-main-3" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-3" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-3" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-3" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-3" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-3" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-3" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-3" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-3" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-3" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-3" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-3" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-3" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-3" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-4" style="display:flex;">
+                <div class="tile-header" id="slot-header-4">
+                    <div id="slot-title-4"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 5</strong></div>
+                    <span id="slot-ip-4" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-4">
+                    <img id="slot-img-4" style="display:none;" draggable="false">
+                    <div id="slot-empty-4" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 5 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-4" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-4" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-4" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-4" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-4" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-4">
+                        <div class="drawer-row" id="drawer-main-4" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-4" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-4" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-4" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-4" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-4" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-4" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-4" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-4" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-4" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-4" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-4" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-4" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-4" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-5" style="display:flex;">
+                <div class="tile-header" id="slot-header-5">
+                    <div id="slot-title-5"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 6</strong></div>
+                    <span id="slot-ip-5" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-5">
+                    <img id="slot-img-5" style="display:none;" draggable="false">
+                    <div id="slot-empty-5" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 6 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-5" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-5" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-5" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-5" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-5" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-5">
+                        <div class="drawer-row" id="drawer-main-5" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-5" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-5" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-5" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-5" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-5" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-5" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-5" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-5" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-5" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-5" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-5" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-5" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-5" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-6" style="display:flex;">
+                <div class="tile-header" id="slot-header-6">
+                    <div id="slot-title-6"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 7</strong></div>
+                    <span id="slot-ip-6" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-6">
+                    <img id="slot-img-6" style="display:none;" draggable="false">
+                    <div id="slot-empty-6" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 7 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-6" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-6" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-6" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-6" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-6" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-6">
+                        <div class="drawer-row" id="drawer-main-6" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-6" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-6" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-6" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-6" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-6" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-6" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-6" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-6" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-6" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-6" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-6" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-6" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-6" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-7" style="display:flex;">
+                <div class="tile-header" id="slot-header-7">
+                    <div id="slot-title-7"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 8</strong></div>
+                    <span id="slot-ip-7" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-7">
+                    <img id="slot-img-7" style="display:none;" draggable="false">
+                    <div id="slot-empty-7" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 8 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-7" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-7" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-7" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-7" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-7" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-7">
+                        <div class="drawer-row" id="drawer-main-7" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-7" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-7" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-7" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-7" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-7" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-7" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-7" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-7" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-7" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-7" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-7" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-7" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-7" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-8" style="display:flex;">
+                <div class="tile-header" id="slot-header-8">
+                    <div id="slot-title-8"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 9</strong></div>
+                    <span id="slot-ip-8" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-8">
+                    <img id="slot-img-8" style="display:none;" draggable="false">
+                    <div id="slot-empty-8" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 9 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-8" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-8" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-8" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-8" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-8" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-8">
+                        <div class="drawer-row" id="drawer-main-8" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-8" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-8" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-8" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-8" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-8" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-8" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-8" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-8" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-8" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-8" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-8" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-8" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-8" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-9" style="display:flex;">
+                <div class="tile-header" id="slot-header-9">
+                    <div id="slot-title-9"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 10</strong></div>
+                    <span id="slot-ip-9" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-9">
+                    <img id="slot-img-9" style="display:none;" draggable="false">
+                    <div id="slot-empty-9" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 10 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-9" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-9" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-9" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-9" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-9" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-9">
+                        <div class="drawer-row" id="drawer-main-9" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-9" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-9" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-9" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-9" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-9" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-9" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-9" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-9" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-9" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-9" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-9" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-9" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-9" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-10" style="display:flex;">
+                <div class="tile-header" id="slot-header-10">
+                    <div id="slot-title-10"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 11</strong></div>
+                    <span id="slot-ip-10" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-10">
+                    <img id="slot-img-10" style="display:none;" draggable="false">
+                    <div id="slot-empty-10" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 11 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-10" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-10" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-10" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-10" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-10" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-10">
+                        <div class="drawer-row" id="drawer-main-10" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-10" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-10" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-10" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-10" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-10" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-10" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-10" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-10" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-10" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-10" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-10" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-10" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-10" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-11" style="display:flex;">
+                <div class="tile-header" id="slot-header-11">
+                    <div id="slot-title-11"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 12</strong></div>
+                    <span id="slot-ip-11" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-11">
+                    <img id="slot-img-11" style="display:none;" draggable="false">
+                    <div id="slot-empty-11" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 12 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-11" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-11" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-11" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-11" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-11" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-11">
+                        <div class="drawer-row" id="drawer-main-11" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-11" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-11" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-11" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-11" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-11" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-11" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-11" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-11" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-11" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-11" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-11" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-11" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-11" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-12" style="display:flex;">
+                <div class="tile-header" id="slot-header-12">
+                    <div id="slot-title-12"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 13</strong></div>
+                    <span id="slot-ip-12" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-12">
+                    <img id="slot-img-12" style="display:none;" draggable="false">
+                    <div id="slot-empty-12" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 13 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-12" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-12" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-12" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-12" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-12" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-12">
+                        <div class="drawer-row" id="drawer-main-12" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-12" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-12" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-12" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-12" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-12" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-12" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-12" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-12" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-12" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-12" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-12" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-12" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-12" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-13" style="display:flex;">
+                <div class="tile-header" id="slot-header-13">
+                    <div id="slot-title-13"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 14</strong></div>
+                    <span id="slot-ip-13" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-13">
+                    <img id="slot-img-13" style="display:none;" draggable="false">
+                    <div id="slot-empty-13" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 14 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-13" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-13" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-13" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-13" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-13" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-13">
+                        <div class="drawer-row" id="drawer-main-13" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-13" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-13" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-13" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-13" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-13" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-13" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-13" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-13" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-13" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-13" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-13" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-13" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-13" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-14" style="display:flex;">
+                <div class="tile-header" id="slot-header-14">
+                    <div id="slot-title-14"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 15</strong></div>
+                    <span id="slot-ip-14" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-14">
+                    <img id="slot-img-14" style="display:none;" draggable="false">
+                    <div id="slot-empty-14" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 15 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-14" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-14" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-14" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-14" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-14" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-14">
+                        <div class="drawer-row" id="drawer-main-14" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-14" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-14" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-14" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-14" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-14" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-14" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-14" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-14" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-14" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-14" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-14" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-14" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-14" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-15" style="display:flex;">
+                <div class="tile-header" id="slot-header-15">
+                    <div id="slot-title-15"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 16</strong></div>
+                    <span id="slot-ip-15" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-15">
+                    <img id="slot-img-15" style="display:none;" draggable="false">
+                    <div id="slot-empty-15" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 16 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-15" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-15" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-15" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-15" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-15" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-15">
+                        <div class="drawer-row" id="drawer-main-15" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-15" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-15" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-15" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-15" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-15" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-15" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-15" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-15" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-15" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-15" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-15" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-15" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-15" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-16" style="display:flex;">
+                <div class="tile-header" id="slot-header-16">
+                    <div id="slot-title-16"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 17</strong></div>
+                    <span id="slot-ip-16" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-16">
+                    <img id="slot-img-16" style="display:none;" draggable="false">
+                    <div id="slot-empty-16" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 17 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-16" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-16" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-16" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-16" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-16" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-16">
+                        <div class="drawer-row" id="drawer-main-16" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-16" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-16" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-16" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-16" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-16" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-16" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-16" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-16" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-16" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-16" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-16" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-16" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-16" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-17" style="display:flex;">
+                <div class="tile-header" id="slot-header-17">
+                    <div id="slot-title-17"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 18</strong></div>
+                    <span id="slot-ip-17" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-17">
+                    <img id="slot-img-17" style="display:none;" draggable="false">
+                    <div id="slot-empty-17" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 18 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-17" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-17" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-17" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-17" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-17" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-17">
+                        <div class="drawer-row" id="drawer-main-17" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-17" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-17" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-17" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-17" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-17" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-17" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-17" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-17" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-17" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-17" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-17" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-17" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-17" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-18" style="display:flex;">
+                <div class="tile-header" id="slot-header-18">
+                    <div id="slot-title-18"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 19</strong></div>
+                    <span id="slot-ip-18" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-18">
+                    <img id="slot-img-18" style="display:none;" draggable="false">
+                    <div id="slot-empty-18" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 19 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-18" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-18" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-18" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-18" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-18" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-18">
+                        <div class="drawer-row" id="drawer-main-18" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-18" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-18" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-18" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-18" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-18" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-18" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-18" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-18" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-18" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-18" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-18" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-18" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-18" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pc-tile" id="slot-19" style="display:flex;">
+                <div class="tile-header" id="slot-header-19">
+                    <div id="slot-title-19"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC 20</strong></div>
+                    <span id="slot-ip-19" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-19">
+                    <img id="slot-img-19" style="display:none;" draggable="false">
+                    <div id="slot-empty-19" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC 20 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-19" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-19" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-19" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-19" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-19" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-19">
+                        <div class="drawer-row" id="drawer-main-19" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-19" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-19" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-19" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-19" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-19" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-19" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-19" title="닫기">✕</button>
+                        </div>
+                        <div class="drawer-row" id="drawer-mon-sub-19" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-19" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-19" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-19" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-19" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-19" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 📱 모바일 세로 완벽 맞춤형 대형 줌 관제 모달 -->
+    <div class="zoom-modal" id="zoomModal" oncontextmenu="return false;">
+        <div class="zoom-header">
+            <!-- 1. 닫기 버튼 -->
+            <button class="close-btn" onclick="closeZoomModal()">✕ 닫기</button>
+
+            <!-- 2. 🎮 원격제어 활성화 토글 버튼 (기본값: 화면보기) -->
+            <button class="control-toggle-btn" id="remoteCtrlToggleBtn" onclick="toggleRemoteControl()" title="원격제어 모드 전환 (기본: 화면보기)">👀 화면보기</button>
+
+            <!-- 3. PC 전환 컨트롤 (방향키 누르면 현재 PC 번호 실시간 변경!) -->
+            <div class="pc-nav-badge">
+                <button class="zoom-nav-btn" onclick="navPc(-1)" title="이전 PC">◀</button>
+                <span id="zoomPcBadge" style="color:#38bdf8;font-weight:bold;font-size:0.75rem;padding:0 4px;white-space:nowrap;">PC 1</span>
+                <button class="zoom-nav-btn" onclick="navPc(1)" title="다음 PC">▶</button>
+            </div>
+
+            <!-- 4. 모니터 1, 2, 3 전환 -->
+            <div class="monitor-selector">
+                <button class="monitor-btn active" id="monBtn0" onclick="selectMonitor('0')">1</button>
+                <button class="monitor-btn" id="monBtn1" onclick="selectMonitor('1')">2</button>
+                <button class="monitor-btn" id="monBtn2" onclick="selectMonitor('2')">3</button>
+            </div>
+
+            <!-- 5. ✏️ 화면 그리기 (펜/형광펜 도구) -->
+            <button class="monitor-btn" id="drawingToggleBtn" onclick="toggleDrawingMode()" style="background:#1e293b;border:1px solid #f59e0b;color:#fbbf24;font-weight:bold;" title="화면에 펜/형광펜으로 그리기">✏️ 그리기</button>
+
+            <!-- 6. ⚙️ 원격 관리 도구 (클릭 시 촤라락 펼쳐짐) -->
+            <button class="monitor-btn" id="zoomGearBtn" onclick="toggleZoomGearDrawer(event)" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;" title="원격 관리 메뉴 펼치기 (파일/정리/재부팅/끄기/업데이트/종료)">⚙️</button>
+
+            <!-- 7. 실시간 소리 듣기 토글 버튼 -->
+            <button class="monitor-btn" id="audioToggleBtn" onclick="toggleAudio()" style="background:#1e293b;border:1px solid #10b981;color:#10b981;" title="원격 PC 사운드 듣기">🔊 소리</button>
+
+            <!-- 8. 💬 1:1 메시지 전송 버튼 -->
+            <button class="monitor-btn" onclick="openMsgModal(currentZoomPcId)" style="background:#1e293b;border:1px solid #a855f7;color:#c084fc;font-weight:bold;" title="현재 원격 PC에 1:1 메시지/공지 띄우기">💬 1:1</button>
+
+            <!-- 9. 녹화 버튼 -->
+            <button class="record-btn" id="recordBtn" onclick="toggleRecording()">
+                <span id="recordIcon">🎥</span>
+                <span id="recordText" style="font-size:0.7rem;display:none;">REC</span>
+            </button>
+            <span id="zoomFpsBadge" style="font-size:0.72rem;color:#10b981;font-weight:bold;padding:2px 6px;background:#0f172a;border-radius:4px;border:1px solid #334155;" title="실시간 송출 FPS">60 FPS</span>
+            <span style="font-size:0.6rem;color:#475569;padding:0 2px;" id="zoomVerBadge">v?</span>
+        </div>
+
+        <!-- ⚙️ 줌 화면 상단 촤라락 슬라이드 액션 툴바 -->
+        <div class="zoom-gear-drawer" id="zoomGearDrawer">
+            <button class="drawer-btn file-btn" onclick="openFileSendModal(currentZoomPcId);toggleZoomGearDrawer(event);" title="원격 PC 바탕화면으로 파일 전송">📁 파일</button>
+            <button class="drawer-btn kill-btn" onclick="triggerKillHungTasks(currentZoomPcId)" title="응답 없는 멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+            <button class="drawer-btn reboot-btn" onclick="triggerRebootPc(currentZoomPcId)" title="원격 PC 재부팅">🔄 재부팅</button>
+            <button class="drawer-btn shutdown-btn" onclick="triggerShutdownPc(currentZoomPcId)" title="원격 PC 전원 끄기">🛑 끄기</button>
+            <button class="drawer-btn update-btn" onclick="triggerSinglePcUpdate(currentZoomPcId)" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+            <button class="drawer-btn" style="border-color:#ef4444;color:#f87171;" onclick="remoteExitPc(currentZoomPcId)" title="원격 PC 다연코퍼레이션 프로그램 종료">🔌 종료</button>
+            <button class="drawer-close-btn" onclick="toggleZoomGearDrawer(event)" title="닫기">✕</button>
+        </div>
+
+        <!-- ✏️ 드로잉 서브 툴바 (그리기 모드 활성화 시 표시) -->
+        <div class="drawing-toolbar" id="drawingToolbar" style="display:none;align-items:center;justify-content:center;gap:8px;background:#0f172a;border:1px solid #f59e0b;border-radius:6px;padding:3px 10px;margin-bottom:2px;width:fit-content;margin-left:auto;margin-right:auto;z-index:25;box-shadow:0 4px 12px rgba(0,0,0,0.6);">
+            <span style="font-size:0.75rem;color:#fbbf24;font-weight:bold;">✏️ 그리기:</span>
+            <button class="draw-color-btn active" id="drawColorRed" style="background:#ef4444;" onclick="setDrawColor('#ef4444')"></button>
+            <button class="draw-color-btn" id="drawColorYellow" style="background:#facc15;" onclick="setDrawColor('#facc15')"></button>
+            <button class="draw-color-btn" id="drawColorGreen" style="background:#22c55e;" onclick="setDrawColor('#22c55e')"></button>
+            <button class="draw-color-btn" id="drawColorBlue" style="background:#38bdf8;" onclick="setDrawColor('#38bdf8')"></button>
+            <button class="draw-color-btn" id="drawColorWhite" style="background:#ffffff;" onclick="setDrawColor('#ffffff')"></button>
+            <select id="drawSizeSelect" onchange="setDrawSize(this.value)" style="background:#1e293b;color:#fff;border:1px solid #334155;border-radius:4px;font-size:0.75rem;padding:2px 4px;outline:none;">
+                <option value="3">얇게</option>
+                <option value="6" selected>보통</option>
+                <option value="12">굵게</option>
+            </select>
+            <button class="mini-btn" onclick="undoDraw()" title="마지막 선 취소">↩️ 되돌리기</button>
+            <button class="mini-btn" style="color:#f87171;" onclick="clearDraw(true)" title="화면의 모든 필기 지우기">🧼 전체 지우기</button>
+            <button class="mini-btn" style="background:#ef4444;border-color:#ef4444;color:#fff;" onclick="toggleDrawingMode()">✕ 그리기 종료</button>
+        </div>
+
+        <!-- 🎨 고화질 이모지 스탬프 서브 툴바 (그리기 모드 활성화 시 표시) -->
+        <div class="stamp-toolbar" id="stampToolbar" style="display:none;align-items:center;justify-content:center;gap:6px;background:rgba(30,27,75,0.95);border:1.5px solid #8b5cf6;border-radius:8px;padding:4px 12px;margin-bottom:3px;width:fit-content;margin-left:auto;margin-right:auto;z-index:25;box-shadow:0 6px 18px rgba(139,92,246,0.45);">
+            <span style="font-size:0.8rem;color:#c4b5fd;font-weight:bold;margin-right:2px;">🎨 스탬프:</span>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('🐱')" title="고양이 스탬프">🐱</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('⚡')" title="번개/피카츄 스탬프">⚡</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('🐻')" title="곰돌이 스탬프">🐻</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('🐶')" title="강아지 스탬프">🐶</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('💖')" title="하트 스탬프">💖</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('⭐')" title="별 스탬프">⭐</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('👑')" title="왕관 스탬프">👑</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('🔥')" title="불꽃 스탬프">🔥</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('👍')" title="따봉 스탬프">👍</button>
+            <button class="mini-btn stamp-btn" onclick="activateStamp('🎉')" title="축하 스탬프">🎉</button>
+        </div>
+
+        <audio id="remoteAudioPlayer" autoplay style="display:none;"></audio>
+
+        <div class="zoom-body" id="zoomBody" oncontextmenu="return false;">
+            <canvas id="zoomStreamCanvas" class="zoom-layer active-layer" style="width:100%;height:100%;object-fit:contain;pointer-events:none;"></canvas>
+            <img id="zoomStreamImgA" class="zoom-layer inactive-layer" src="" draggable="false" style="display:none;">
+            <img id="zoomStreamImgB" class="zoom-layer inactive-layer" src="" draggable="false" style="display:none;">
+            <canvas id="annotationCanvas" class="annotation-canvas"></canvas>
+            <div class="zoom-touch-layer" id="zoomTouchLayer" oncontextmenu="return false;"></div>
+        </div>
+    </div>
+
+    <!-- 💬 6번: 원격 공지 메시지 전송 모달 -->
+    <div class="msg-modal-backdrop" id="msgModalBackdrop" onclick="closeMsgModal(event)">
+        <div class="msg-modal-box" onclick="event.stopPropagation()">
+            <div class="msg-modal-title">
+                <span>💬 원격 PC 공지 / 1:1 메시지 전송</span>
+                <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;" onclick="closeMsgModal()">✕</button>
+            </div>
+            <select class="msg-target-select" id="msgTargetSelect">
+                <option value="all">📢 연결된 모든 PC (전체 일괄 공지)</option>
+            </select>
+            <textarea class="msg-textarea" id="msgText" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendPopupMessage();}" placeholder="원격 PC 화면에 띄울 메시지 내용을 입력하세요 (Enter: 즉시 전송, Shift+Enter: 줄바꿈)."></textarea>
+            <div class="msg-btn-row">
+                <button class="msg-cancel-btn" onclick="closeMsgModal()">취소</button>
+                <button class="msg-send-btn" onclick="sendPopupMessage()">전송하기 (Enter)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📋 클립보드 복사/붙여넣기 모달 -->
+    <div class="msg-modal-backdrop" id="clipboardModalBackdrop" onclick="closeClipboardModal(event)">
+        <div class="msg-modal-box" onclick="event.stopPropagation()">
+            <div class="msg-modal-title">
+                <span>📋 원격 PC 클립보드 복사 / 텍스트 붙여넣기</span>
+                <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;" onclick="closeClipboardModal()">✕</button>
+            </div>
+            <p style="font-size:0.8rem;color:#94a3b8;margin:0;">대표님 PC에서 복사한 글자나 주소를 아래에 입력하고 [원격 PC로 붙여넣기]를 누르시면 원격 PC 화면에 즉시 입력됩니다.</p>
+            <textarea class="msg-textarea" id="clipboardInputText" style="height:90px;" placeholder="붙여넣을 텍스트(한글, 영문, URL, 계좌번호 등)를 여기에 입력하거나 붙여넣으세요..."></textarea>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0;">
+                <button class="mini-btn" onclick="sendRemoteHotkey('ctrl+c')">📋 원격 복사 (Ctrl+C)</button>
+                <button class="mini-btn" onclick="sendRemoteHotkey('ctrl+v')">📥 원격 붙여넣기 (Ctrl+V)</button>
+                <button class="mini-btn" onclick="sendRemoteHotkey('ctrl+a')">🔄 전체 선택 (Ctrl+A)</button>
+                <button class="mini-btn" onclick="sendRemoteHotkey('ctrl+z')">↩️ 실행 취소 (Ctrl+Z)</button>
+            </div>
+            <div class="msg-btn-row">
+                <button class="msg-cancel-btn" onclick="closeClipboardModal()">닫기</button>
+                <button class="msg-send-btn" style="background:#0284c7;" onclick="pasteTextToRemote()">📥 원격 PC로 텍스트 붙여넣기</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="globalFileInput" style="display:none;" onchange="onFileSelected(this)">
+
+<script>
+window.onerror = function(msg, src, line) { document.title = 'ERR@' + line + ': ' + msg; };
+const cctvGrid = document.getElementById('cctvGrid');
+const zoomModal = document.getElementById('zoomModal');
+const zoomStreamImg = document.getElementById('zoomStreamImg');
+const zoomTouchLayer = document.getElementById('zoomTouchLayer');
+const recordBtn = document.getElementById('recordBtn');
+const recordIcon = document.getElementById('recordIcon');
+const recordText = document.getElementById('recordText');
+const mobilePcChips = document.getElementById('mobilePcChips');
+const patrolBtn = document.getElementById('patrolBtn');
+const zoomPcBadge = document.getElementById('zoomPcBadge');
+
+let activePcs = [];
+let currentZoomPcId = null;
+let selectedMonitorIdx = '0';
+let patrolInterval = null;
+let currentMobileView = '1col';
+let currentActiveLayer = 'A';
+
+function getActiveZoomImg() {
+    return currentActiveLayer === 'A' ? document.getElementById('zoomStreamImgA') : document.getElementById('zoomStreamImgB');
+}
+
+// ---- 🏷️ PC 별명(Nickname) 로컬 및 서버 영구 동기화 ----
+let localNicknames = {};
+try { localNicknames = JSON.parse(localStorage.getItem('pc_nicknames') || '{}'); } catch(e) {}
+
+// ---- 🔄 새 버전 감지 시 관제 화면 자동 핫 리로드 ----
+let currentClientVer = null;
+async function checkClientVersion() {
+    try {
+        const res = await fetch('/api/version?t=' + Date.now());
+        if (res.ok) {
+            const data = await res.json();
+            const verBadge = document.getElementById('versionBadge');
+            if (verBadge && data) {
+                const dateText = data.updatedDate || new Date().toISOString().replace('T', ' ').slice(0, 19);
+                verBadge.innerText = `UPDATE (${dateText})`;
+                verBadge.title = `최종 수정 일시: ${data.updatedDate || '알 수 없음'}`;
+            }
+            if (currentClientVer === null) {
+                currentClientVer = data.version;
+                const zvb = document.getElementById('zoomVerBadge');
+                if (zvb) zvb.innerText = 'v' + data.version;
+            } else if (data.version && data.version > currentClientVer) {
+                console.log(`[업데이트 감지] v${currentClientVer} -> v${data.version}, 관제 화면 자동 갱신...`);
+                currentClientVer = data.version;
+                location.reload(true);
+            }
+        }
+    } catch(e) {}
+}
+setInterval(checkClientVersion, 3000);
+
+// ---- 🚨 5번: 화면 멈춤 감지 상태 트래커 ----
+let pcLastSeenTime = {};
+let pcFrozenState = {};
+
+// ---- 🖥️ 모니터 선택 기억소 (1번/2번 모니터 전환 영구 기억) ----
+let lastViewedMonitor = {};
+try {
+    const savedMon = localStorage.getItem('pc_last_monitors');
+    if (savedMon) lastViewedMonitor = JSON.parse(savedMon);
+} catch(e) {}
+
+function playFreezeAlertTone() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.15); // E5 note
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+    } catch(e) {}
+}
+
+let myAdminSessionId = '';
+try {
+    myAdminSessionId = localStorage.getItem('dayeon_admin_session_id');
+    if (!myAdminSessionId) {
+        myAdminSessionId = 'admin_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+        localStorage.setItem('dayeon_admin_session_id', myAdminSessionId);
+    }
+} catch(e) {
+    myAdminSessionId = 'admin_' + Math.random().toString(36).substring(2, 9);
+}
+
+let currentClientVersion = 0;
+
+// ---- PC 목록 갱신 및 멈춤 감지 ----
+async function updatePcList() {
+    try {
+        const res = await fetch(`/api/pcs?adminId=${myAdminSessionId}&t=${Date.now()}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.version) {
+                const vBadge = document.getElementById('versionBadge');
+                if (vBadge) {
+                    const dateText = data.updatedDate || new Date().toISOString().replace('T', ' ').slice(0, 19);
+                    vBadge.innerText = `UPDATE (${dateText})`;
+                }
+                if (currentClientVersion === 0) {
+                    currentClientVersion = data.version;
+                } else if (data.version > currentClientVersion) {
+                    currentClientVersion = data.version;
+                    window.location.reload();
+                    return;
+                }
+            }
+
+            if (data && data.tunnelUrl) {
+                window.currentTunnelUrl = data.tunnelUrl;
+                const tunnelBtn = document.getElementById('tunnelLinkBtn');
+                if (tunnelBtn) {
+                    tunnelBtn.style.display = 'inline-block';
+                    tunnelBtn.innerText = `🌐 외부링크: ${data.tunnelUrl.replace('https://', '').replace('.trycloudflare.com', '')}`;
+                }
+            }
+
+            const pcs = Array.isArray(data) ? data : (data.pcs || []);
+            const adminCount = (data && data.adminCount) ? data.adminCount : (parseInt(res.headers.get('X-Admin-Count')) || 1);
+
+            const adminBadge = document.getElementById('onlineAdmins');
+            if (adminBadge) adminBadge.innerText = `👤 ${adminCount}명 접속`;
+
+            // 별명 로컬스토리지 & 서버 양방향 결합 보존
+            pcs.forEach(pc => {
+                const savedNick = localNicknames[pc.id] || localNicknames[pc.name];
+                if (pc.nickname) {
+                    localNicknames[pc.id] = pc.nickname;
+                    if (pc.name) localNicknames[pc.name] = pc.nickname;
+                } else if (savedNick) {
+                    pc.nickname = savedNick;
+                }
+            });
+
+            activePcs = pcs;
+            document.getElementById('onlinePcs').innerText = pcs.length + '대 ONLINE';
+            
+            const now = Date.now();
+            pcs.forEach(pc => {
+                const diff = now - pc.lastSeen;
+                // 25초 이상 리포트가 지연되면 멈춤 감지
+                const isFrozen = (diff > 25000);
+                if (isFrozen && !pcFrozenState[pc.id]) {
+                    pcFrozenState[pc.id] = true;
+                    playFreezeAlertTone();
+                    showToast(`🚨 [${pc.name}] 화면 멈춤 감지!`);
+                } else if (!isFrozen) {
+                    pcFrozenState[pc.id] = false;
+                }
+            });
+
+            renderGrid();
+            renderMobileChips();
+
+            if (currentZoomPcId) {
+                const curPc = activePcs.find(p => p.id === currentZoomPcId);
+                if (curPc && curPc.clipboardB64 && curPc.clipboardB64 !== lastSyncedRemoteClipB64) {
+                    lastSyncedRemoteClipB64 = curPc.clipboardB64;
+                    lastRemoteCopyTimestamp = Date.now();
+                    const decoded = decodeBase64Utf8(curPc.clipboardB64);
+                    if (decoded && navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(decoded).catch(() => {});
+                    }
+                }
+                const isHidden = !!(curPc && curPc.isBlindMode);
+                const zoomBlindCover = document.getElementById('zoomBlindCover');
+                if (zoomBlindCover) zoomBlindCover.style.display = isHidden ? 'flex' : 'none';
+                if (zoomTouchLayer) zoomTouchLayer.style.pointerEvents = isHidden ? 'none' : 'auto';
+            }
+        }
+    } catch(e) {}
+}
+
+function decodeBase64Utf8(base64) {
+    try {
+        const binStr = atob(base64);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+            bytes[i] = binStr.charCodeAt(i);
+        }
+        return new TextDecoder('utf-8').decode(bytes);
+    } catch(e) {
+        return '';
+    }
+}
+let lastSyncedRemoteClipB64 = '';
+let lastLocalCopyTimestamp = 0;
+let lastRemoteCopyTimestamp = 0;
+
+async function copyTunnelUrl() {
+    try {
+        const res = await fetch('/api/tunnel_url?t=' + Date.now());
+        const data = await res.json();
+        if (data && data.url) {
+            window.currentTunnelUrl = data.url;
+        }
+    } catch(e) {}
+
+    if (window.currentTunnelUrl) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(window.currentTunnelUrl).then(() => {
+                showToast('📋 최신 실시간 외부 접속 링크가 복사되었습니다:\n' + window.currentTunnelUrl);
+            }).catch(() => {
+                prompt('최신 외부 접속 링크를 복사하세요:', window.currentTunnelUrl);
+            });
+        } else {
+            prompt('최신 외부 접속 링크를 복사하세요:', window.currentTunnelUrl);
+        }
+    } else {
+        showToast('⏳ 외부 접속 터널 발급 중입니다. 3초 후 다시 클릭해 주세요.');
+    }
+}
+
+function checkAuth() {
+    const auth = sessionStorage.getItem('dayeon_auth') || localStorage.getItem('dayeon_auth');
+    const authOverlay = document.getElementById('authOverlay');
+    if (!authOverlay) return;
+    if (auth === 'ok') {
+        authOverlay.style.display = 'none';
+    } else {
+        authOverlay.style.display = 'flex';
+        setTimeout(() => {
+            const input = document.getElementById('authPassInput');
+            if (input) input.focus();
+        }, 150);
+    }
+}
+
+async function submitAuth() {
+    const input = document.getElementById('authPassInput');
+    const errDiv = document.getElementById('authError');
+    if (!input) return;
+    const pass = input.value.trim();
+    if (!pass) {
+        if (errDiv) errDiv.innerText = '비밀번호를 입력해 주세요.';
+        return;
+    }
+    try {
+        const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pass })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            localStorage.setItem('dayeon_auth', 'ok');
+            sessionStorage.setItem('dayeon_auth', 'ok');
+            const authOverlay = document.getElementById('authOverlay');
+            if (authOverlay) authOverlay.style.display = 'none';
+            showToast('🔑 관리자 인증 완료!');
+        } else {
+            if (errDiv) errDiv.innerText = data.message || '비밀번호가 일치하지 않습니다.';
+            input.value = '';
+            input.focus();
+        }
+    } catch(e) {
+        if (errDiv) errDiv.innerText = '인증 서버 오류가 발생했습니다.';
+    }
+}
+
+async function openPasswordChangeModal() {
+    const oldPass = prompt('현재 관리자 비밀번호를 입력하세요:');
+    if (!oldPass) return;
+    const newPass = prompt('새로운 관리자 비밀번호를 입력하세요 (4자리 이상 권장):');
+    if (!newPass || !newPass.trim()) return;
+    const confirmPass = prompt('새로운 비밀번호를 한 번 더 입력하세요:');
+    if (newPass !== confirmPass) {
+        alert('새 비밀번호가 일치하지 않습니다.');
+        return;
+    }
+    try {
+        const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'change', oldPass: oldPass.trim(), newPass: newPass.trim() })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            alert('✅ 비밀번호가 성공적으로 변경되었습니다!');
+        } else {
+            alert('❌ ' + (data.message || '비밀번호 변경 실패'));
+        }
+    } catch(e) {
+        alert('❌ 서버 통신 오류');
+    }
+}
+
+window.addEventListener('DOMContentLoaded', checkAuth);
+setTimeout(checkAuth, 100);
+
+let currentGridMode = 20;
+
+function editPcNickname(pcId, event) {
+    if (event) event.stopPropagation();
+    const pc = activePcs.find(p => p.id === pcId);
+    const current = (pc && pc.nickname) ? pc.nickname : (localNicknames[pcId] || (pc && localNicknames[pc.name]) || '');
+    const newNick = prompt(`[${(pc && pc.name) || pcId}] PC의 별명/담당자 이름을 입력하세요 (예: 김대리, 1번자리, 메이플1):`, current);
+    if (newNick !== null) {
+        const trimmed = newNick.trim();
+        localNicknames[pcId] = trimmed;
+        if (pc && pc.name) localNicknames[pc.name] = trimmed;
+        try { localStorage.setItem('pc_nicknames', JSON.stringify(localNicknames)); } catch(e) {}
+
+        if (pc) pc.nickname = trimmed;
+        renderGrid();
+        renderMobileChips();
+
+        if (currentZoomPcId === pcId && zoomPcBadge) {
+            const pcIdx = activePcs.findIndex(p => p.id === pcId);
+            const displayName = trimmed ? `PC ${pcIdx + 1} [${trimmed}]` : `PC ${pcIdx + 1}`;
+            zoomPcBadge.innerText = displayName;
+        }
+        showToast(`✅ 별명 저장 완료: ${trimmed || '기본값'}`);
+
+        fetch('/api/nicknames', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pcId, nickname: trimmed })
+        }).catch(() => {});
+    }
+}
+
+function renderMobileChips() {
+    if (!mobilePcChips) return;
+    let html = '<span class="pc-chip ' + (currentZoomPcId === null ? 'active' : '') + '" onclick="filterMobilePc(\'all\')">전체보기</span>';
+    for (let i = 0; i < 20; i++) {
+        const pc = activePcs[i];
+        if (pc) {
+            const isAct = (currentZoomPcId === pc.id);
+            const isFrozen = pcFrozenState[pc.id];
+            const frozenMark = isFrozen ? ' 🚨' : '';
+            const nickStr = pc.nickname ? ` [${pc.nickname}]` : '';
+            html += `<span class="pc-chip ${isAct ? 'active' : ''}" style="border-color:#22c55e;" onclick="openZoomModal('${pc.id}')">🟢 PC ${i + 1}${nickStr}${frozenMark}</span>`;
+        } else {
+            html += `<span class="pc-chip" style="opacity:0.45;color:#64748b;" title="접속 대기">⚪ PC ${i + 1}</span>`;
+        }
+    }
+    mobilePcChips.innerHTML = html;
+}
+
+function filterMobilePc(pcId) {
+    if (pcId === 'all') {
+        closeZoomModal();
+    }
+}
+
+let isGridInitialized = false;
+
+function ensureGridSlots() {
+    if (isGridInitialized && cctvGrid.children.length === 20) return;
+    let html = '';
+    for (let i = 0; i < 20; i++) {
+        html += `
+            <div class="pc-tile" id="slot-${i}" style="display:flex;">
+                <div class="tile-header" id="slot-header-${i}">
+                    <div id="slot-title-${i}"><span class="pc-status-dot" style="background:#64748b;"></span><strong style="color:#94a3b8;">PC ${i + 1}</strong></div>
+                    <span id="slot-ip-${i}" style="color:#64748b;font-size:0.75rem;">접속 대기</span>
+                </div>
+                <div class="tile-video-wrap" id="slot-video-${i}">
+                    <img id="slot-img-${i}" style="display:none;" draggable="false">
+                    <div id="slot-empty-${i}" style="display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;height:100%;">
+                        <span style="font-size:1.6rem;opacity:0.3;">🔌</span>
+                        <span style="font-size:0.75rem;color:#64748b;font-weight:bold;">PC ${i + 1} 대기 중</span>
+                    </div>
+                    <div class="tile-overlay-btns" id="slot-btns-${i}" style="display:none;">
+                        <button class="mini-btn" id="slot-btn-nick-${i}" title="PC 별명 설정">✏️ 별명</button>
+                        <button class="mini-btn" id="slot-btn-msg-${i}" title="메시지 전송">💬</button>
+                        <button class="mini-btn" id="slot-btn-gear-${i}" title="원격 제어 및 관리 도구 펼치기" style="background:#1e293b;border:1px solid #38bdf8;color:#38bdf8;font-weight:bold;">⚙️</button>
+                        <button class="mini-btn" id="slot-btn-zoom-${i}" title="원격 제어 확대">🔍 확대</button>
+                    </div>
+                    <div class="tile-gear-drawer" id="tile-gear-drawer-${i}">
+                        <!-- 메인 관리 툴바 -->
+                        <div class="drawer-row" id="drawer-main-${i}" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:2px;">
+                            <button class="drawer-btn mon-btn" id="drawer-btn-mon-${i}" title="모니터 1, 2, 3번 선택" style="border-color:#6366f1;color:#a5b4fc;">🖥️ 화면</button>
+                            <button class="drawer-btn file-btn" id="drawer-file-${i}" title="바탕화면으로 파일 전송">📁 파일</button>
+                            <button class="drawer-btn kill-btn" id="drawer-kill-${i}" title="멈춘 프로그램 강제 종료 정리">⚡ 정리</button>
+                            <button class="drawer-btn reboot-btn" id="drawer-reboot-${i}" title="원격 PC 재부팅">🔄 재부팅</button>
+                            <button class="drawer-btn shutdown-btn" id="drawer-shutdown-${i}" title="원격 PC 전원 끄기">🛑 끄기</button>
+                            <button class="drawer-btn update-btn" id="drawer-update-${i}" title="이 PC만 단독 업데이트">🚀 업데이트</button>
+                            <button class="drawer-close-btn" id="drawer-close-${i}" title="닫기">✕</button>
+                        </div>
+                        <!-- 모니터 1, 2, 3번 선택 서브 툴바 -->
+                        <div class="drawer-row" id="drawer-mon-sub-${i}" style="display:none;width:100%;align-items:center;justify-content:space-between;gap:3px;">
+                            <button class="drawer-btn" id="drawer-sub-m0-${i}" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 1번</button>
+                            <button class="drawer-btn" id="drawer-sub-m1-${i}" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 2번</button>
+                            <button class="drawer-btn" id="drawer-sub-m2-${i}" style="border-color:#38bdf8;color:#38bdf8;">🖥️ 3번</button>
+                            <button class="drawer-btn" id="drawer-sub-back-${i}" style="border-color:#64748b;color:#94a3b8;flex:0.8;">↩️ 뒤로</button>
+                            <button class="drawer-close-btn" id="drawer-sub-close-${i}" title="닫기">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+    cctvGrid.innerHTML = html;
+    isGridInitialized = true;
+}
+
+function toggleTileMonSub(idx, showSub) {
+    const main = document.getElementById(`drawer-main-${idx}`);
+    const sub = document.getElementById(`drawer-mon-sub-${idx}`);
+    if (main && sub) {
+        main.style.display = showSub ? 'none' : 'flex';
+        sub.style.display = showSub ? 'flex' : 'none';
+    }
+}
+
+function setTileMonitor(pcId, monIdx, e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    lastViewedMonitor[pcId] = monIdx.toString();
+    try { localStorage.setItem('pc_last_monitors', JSON.stringify(lastViewedMonitor)); } catch(e) {}
+    fetch(`/api/control?pc=${encodeURIComponent(pcId)}&type=monitor&monitor=${monIdx}`);
+    showToast(`🖥️ PC 모니터 ${parseInt(monIdx) + 1}번으로 전환되었습니다!`);
+    renderGrid();
+}
+
+function cycleTileMonitor(pcId, e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const curr = parseInt(lastViewedMonitor[pcId] || '0');
+    const next = (curr === 0) ? 1 : 0;
+    setTileMonitor(pcId, next.toString(), e);
+}
+
+function toggleTileGearDrawer(idx) {
+    const drawer = document.getElementById(`tile-gear-drawer-${idx}`);
+    if (!drawer) return;
+    const isVisible = (drawer.style.display === 'flex');
+    for (let j = 0; j < 20; j++) {
+        const d = document.getElementById(`tile-gear-drawer-${j}`);
+        if (d) {
+            d.style.display = 'none';
+            toggleTileMonSub(j, false);
+        }
+    }
+    if (!isVisible) {
+        toggleTileMonSub(idx, false);
+        drawer.style.display = 'flex';
+    }
+}
+
+function closeTileGearDrawer(idx) {
+    const drawer = document.getElementById(`tile-gear-drawer-${idx}`);
+    if (drawer) {
+        drawer.style.display = 'none';
+        toggleTileMonSub(idx, false);
+    }
+}
+
+function renderGrid() {
+    ensureGridSlots();
+
+    for (let i = 0; i < 20; i++) {
+        const slot = document.getElementById(`slot-${i}`);
+        const slotHeader = document.getElementById(`slot-header-${i}`);
+        const slotTitle = document.getElementById(`slot-title-${i}`);
+        const slotIp = document.getElementById(`slot-ip-${i}`);
+        const slotImg = document.getElementById(`slot-img-${i}`);
+        const slotEmpty = document.getElementById(`slot-empty-${i}`);
+        const slotBtns = document.getElementById(`slot-btns-${i}`);
+        const btnNick = document.getElementById(`slot-btn-nick-${i}`);
+        const btnMsg = document.getElementById(`slot-btn-msg-${i}`);
+        const btnGear = document.getElementById(`slot-btn-gear-${i}`);
+        const btnZoom = document.getElementById(`slot-btn-zoom-${i}`);
+        const drawer = document.getElementById(`tile-gear-drawer-${i}`);
+        const drawerBtnMon = document.getElementById(`drawer-btn-mon-${i}`);
+        const drawerSubM0 = document.getElementById(`drawer-sub-m0-${i}`);
+        const drawerSubM1 = document.getElementById(`drawer-sub-m1-${i}`);
+        const drawerSubM2 = document.getElementById(`drawer-sub-m2-${i}`);
+        const drawerSubBack = document.getElementById(`drawer-sub-back-${i}`);
+        const drawerSubClose = document.getElementById(`drawer-sub-close-${i}`);
+        const drawerFile = document.getElementById(`drawer-file-${i}`);
+        const drawerKill = document.getElementById(`drawer-kill-${i}`);
+        const drawerReboot = document.getElementById(`drawer-reboot-${i}`);
+        const drawerShutdown = document.getElementById(`drawer-shutdown-${i}`);
+        const drawerUpdate = document.getElementById(`drawer-update-${i}`);
+        const drawerClose = document.getElementById(`drawer-close-${i}`);
+
+        if (!slot) continue;
+
+        const pc = activePcs[i];
+        if (currentGridMode === 'auto') {
+            if (!pc) {
+                slot.style.display = 'none';
+                continue;
+            } else {
+                slot.style.display = 'flex';
+            }
+        } else if (currentGridMode === 4) {
+            if (!pc || i >= 4) {
+                slot.style.display = 'none';
+                continue;
+            } else {
+                slot.style.display = 'flex';
+            }
+        } else if (currentGridMode === 1) {
+            if (!pc || i >= 1) {
+                slot.style.display = 'none';
+                continue;
+            } else {
+                slot.style.display = 'flex';
+            }
+        } else {
+            slot.style.display = 'flex';
+        }
+
+        if (pc) {
+            const pcId = pc.id;
+            const isFrozen = pcFrozenState[pcId];
+            const badge = isFrozen ? '<span class="freeze-badge">🚨 멈춤 감지</span>' : '';
+            const nickBadge = pc.nickname ? `<span style="background:rgba(56,189,248,0.2);color:#38bdf8;padding:1px 6px;border-radius:4px;font-weight:bold;margin-left:4px;">${pc.nickname}</span>` : '';
+
+            slot.className = `pc-tile ${isFrozen ? 'freeze-alert' : ''}`;
+            slot.style.borderStyle = 'solid';
+            slot.style.borderColor = '#1f2937';
+            slot.style.background = '#111827';
+            slot.style.cursor = 'pointer';
+            slot.onclick = (e) => { if (e.button === 0) openZoomModal(pcId); };
+            slot.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleTileGearDrawer(i);
+            };
+
+            const monIdx = (lastViewedMonitor[pcId] !== undefined && lastViewedMonitor[pcId] !== null) ? lastViewedMonitor[pcId].toString() : (pc.activeMonitor || '0');
+            const monNum = parseInt(monIdx) + 1;
+            const monBadge = `<span onclick="cycleTileMonitor('${pcId}', event)" style="background:#312e81;color:#a5b4fc;border:1px solid #6366f1;padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:4px;cursor:pointer;" title="클릭하여 모니터 1번/2번 화면 전환">🖥️ ${monNum}번</span>`;
+
+            slotHeader.style.background = '';
+            slotHeader.style.opacity = '1';
+            slotTitle.innerHTML = `<span class="pc-status-dot"></span><strong>PC ${i + 1}</strong>${nickBadge}${monBadge} <span style="color:#9ca3af;font-size:0.75rem;">(${pc.name})</span> ${badge}`;
+            slotIp.innerText = pc.ip || '';
+            slotIp.style.color = '#9ca3af';
+
+            slotEmpty.style.display = 'none';
+            slotBtns.style.display = 'flex';
+            slotImg.style.display = 'block';
+
+            // 🌟 실시간 화면 라이브 스트림 로드 (확대 모달이 닫혀있을 때만 백그라운드 그리드 스냅샷 갱신)
+            if (!zoomModal.classList.contains('active')) {
+                slotImg.dataset.pcId = pcId;
+                const newImgUrl = `/api/snapshot?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}&t=${Date.now()}`;
+                const preloader = new Image();
+                preloader.onload = () => {
+                    if (slotImg && slotImg.dataset.pcId === pcId) {
+                        slotImg.src = preloader.src;
+                    }
+                };
+                preloader.src = newImgUrl;
+            }
+
+            btnNick.onclick = (e) => editPcNickname(pcId, e);
+            btnMsg.onclick = (e) => { e.stopPropagation(); openMsgModal(pcId); };
+            btnZoom.onclick = (e) => { e.stopPropagation(); openZoomModal(pcId); };
+
+            if (btnGear) {
+                btnGear.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleTileGearDrawer(i);
+                };
+            }
+            if (drawerBtnMon) {
+                drawerBtnMon.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleTileMonSub(i, true);
+                };
+            }
+            if (drawerSubBack) {
+                drawerSubBack.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleTileMonSub(i, false);
+                };
+            }
+            if (drawerSubClose) {
+                drawerSubClose.onclick = (e) => {
+                    e.stopPropagation();
+                    closeTileGearDrawer(i);
+                };
+            }
+            if (drawerSubM0) {
+                drawerSubM0.onclick = (e) => {
+                    e.stopPropagation();
+                    setTileMonitor(pcId, '0', e);
+                    closeTileGearDrawer(i);
+                };
+                drawerSubM0.style.background = (monIdx === '0') ? '#0284c7' : '#1e293b';
+                drawerSubM0.style.color = (monIdx === '0') ? '#ffffff' : '#38bdf8';
+                drawerSubM0.style.borderColor = (monIdx === '0') ? '#38bdf8' : '#334155';
+            }
+            if (drawerSubM1) {
+                drawerSubM1.onclick = (e) => {
+                    e.stopPropagation();
+                    setTileMonitor(pcId, '1', e);
+                    closeTileGearDrawer(i);
+                };
+                drawerSubM1.style.background = (monIdx === '1') ? '#0284c7' : '#1e293b';
+                drawerSubM1.style.color = (monIdx === '1') ? '#ffffff' : '#38bdf8';
+                drawerSubM1.style.borderColor = (monIdx === '1') ? '#38bdf8' : '#334155';
+            }
+            if (drawerSubM2) {
+                drawerSubM2.onclick = (e) => {
+                    e.stopPropagation();
+                    setTileMonitor(pcId, '2', e);
+                    closeTileGearDrawer(i);
+                };
+                drawerSubM2.style.background = (monIdx === '2') ? '#0284c7' : '#1e293b';
+                drawerSubM2.style.color = (monIdx === '2') ? '#ffffff' : '#38bdf8';
+                drawerSubM2.style.borderColor = (monIdx === '2') ? '#38bdf8' : '#334155';
+            }
+            if (drawerClose) {
+                drawerClose.onclick = (e) => {
+                    e.stopPropagation();
+                    closeTileGearDrawer(i);
+                };
+            }
+            if (drawerFile) {
+                drawerFile.onclick = (e) => {
+                    e.stopPropagation();
+                    closeTileGearDrawer(i);
+                    openFileSendModal(pcId);
+                };
+            }
+            if (drawerKill) {
+                drawerKill.onclick = (e) => {
+                    e.stopPropagation();
+                    triggerKillHungTasks(pcId);
+                };
+            }
+            if (drawerReboot) {
+                drawerReboot.onclick = (e) => {
+                    e.stopPropagation();
+                    triggerRebootPc(pcId);
+                };
+            }
+            if (drawerShutdown) {
+                drawerShutdown.onclick = (e) => {
+                    e.stopPropagation();
+                    triggerShutdownPc(pcId);
+                };
+            }
+            if (drawerUpdate) {
+                drawerUpdate.onclick = (e) => {
+                    e.stopPropagation();
+                    triggerSinglePcUpdate(pcId);
+                };
+            }
+
+        } else {
+            if (drawer) drawer.style.display = 'none';
+            slot.className = 'pc-tile';
+            slot.style.borderStyle = 'dashed';
+            slot.style.borderColor = '#334155';
+            slot.style.background = '#0f172a';
+            slot.style.cursor = 'default';
+            slot.onclick = null;
+            slot.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            };
+
+            slotHeader.style.background = '#1e293b';
+            slotHeader.style.opacity = '0.7';
+            slotTitle.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:#64748b;display:inline-block;margin-right:4px;"></span><strong style="color:#94a3b8;">PC ${i + 1}</strong>`;
+            slotIp.innerText = '접속 대기';
+            slotIp.style.color = '#64748b';
+
+            slotImg.style.display = 'none';
+            slotImg.dataset.pcId = '';
+            slotEmpty.style.display = 'flex';
+            slotBtns.style.display = 'none';
+        }
+    }
+}
+
+// ---- 🔮 슬라이드 툴바 외부 클릭 시 자동 닫기 ----
+window.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('.tile-gear-drawer') && !e.target.closest('.zoom-gear-drawer') && !e.target.closest('.mini-btn') && !e.target.closest('#zoomGearBtn')) {
+        for (let j = 0; j < 20; j++) {
+            const d = document.getElementById(`tile-gear-drawer-${j}`);
+            if (d && d.style.display === 'flex') d.style.display = 'none';
+        }
+        const zd = document.getElementById('zoomGearDrawer');
+        if (zd && zd.style.display === 'flex') zd.style.display = 'none';
+    }
+});
+
+window.addEventListener('contextmenu', (e) => {
+    if (currentZoomPcId) return; // 전체화면 모드에서는 원격 PC로 직접 우클릭 전달
+    e.preventDefault();
+
+    const tile = e.target.closest('.pc-tile');
+    if (tile && tile.id && tile.id.startsWith('slot-')) {
+        const slotIdx = parseInt(tile.id.replace('slot-', ''));
+        const pc = activePcs[slotIdx];
+        if (pc) {
+            toggleTileGearDrawer(slotIdx);
+            return;
+        }
+    }
+});
+
+function copyPcInfo(pcId, ip) {
+    const pc = activePcs.find(p => p.id === pcId);
+    const text = `[PC 정보] 이름: ${pc ? pc.name : pcId}, 별명: ${(pc && pc.nickname) || '없음'}, IP: ${ip}`;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 PC 정보가 복사되었습니다!');
+    });
+}
+
+function triggerSinglePcUpdate(pcId) {
+    if (confirm(`[${pcId}] PC에 단독으로 최신 버전 자동 업데이트를 전송하시겠습니까?`)) {
+        fetch(`/api/control?pc=${encodeURIComponent(pcId)}&type=auto_update`);
+        showToast(`🚀 [${pcId}] 업데이트 명령을 전송했습니다!`);
+    }
+}
+
+
+// ---- 토스트 알림 ----
+function showToast(msg) {
+    let t = document.getElementById('cctvToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'cctvToast';
+        t.style.cssText = 'position:fixed;top:48px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);color:#38bdf8;padding:6px 14px;border-radius:20px;font-size:0.82rem;font-weight:bold;border:1px solid #38bdf8;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.5);transition:opacity 0.2s;pointer-events:none;';
+        document.body.appendChild(t);
+    }
+    t.innerText = msg;
+    t.style.opacity = '1';
+    clearTimeout(t.timer);
+    t.timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+}
+
+// ---- 대형 줌 모달 ----
+function openZoomModal(pcId) {
+    currentZoomPcId = pcId;
+    zoomModal.classList.add('active');
+    
+    const pcObj = activePcs.find(p => p.id === pcId);
+    if (lastViewedMonitor[pcId] !== undefined && lastViewedMonitor[pcId] !== null) {
+        selectedMonitorIdx = lastViewedMonitor[pcId].toString();
+    } else if (pcObj && pcObj.activeMonitor !== undefined && pcObj.activeMonitor !== null) {
+        selectedMonitorIdx = pcObj.activeMonitor.toString();
+    } else {
+        selectedMonitorIdx = '0';
+    }
+
+    fetch(`/api/control?pc=${encodeURIComponent(pcId)}&type=monitor&monitor=${selectedMonitorIdx}`);
+
+    // PC 번호 및 별명 배지 업데이트
+    const pcIdx = activePcs.findIndex(p => p.id === pcId);
+    if (zoomPcBadge) {
+        const nickText = (pcObj && pcObj.nickname) ? ` [${pcObj.nickname}]` : '';
+        zoomPcBadge.innerText = pcIdx >= 0 ? `PC ${pcIdx + 1}${nickText}` : 'PC';
+        zoomPcBadge.onclick = (e) => editPcNickname(pcId, e);
+        zoomPcBadge.style.cursor = 'pointer';
+        zoomPcBadge.title = '클릭하여 별명(이름) 변경';
+    }
+
+    // 모니터 버튼 하이라이트 동기화
+    document.querySelectorAll('.monitor-btn').forEach(b => {
+        if (b.id && b.id.startsWith('monBtn')) b.classList.remove('active');
+    });
+    const activeMonBtn = document.getElementById('monBtn' + selectedMonitorIdx);
+    if (activeMonBtn) activeMonBtn.classList.add('active');
+
+    // 1. 듀얼 레이어 초기화 및 WebSocket 60fps 실시간 스트림 연결
+    currentActiveLayer = 'A';
+    const imgA = document.getElementById('zoomStreamImgA');
+    const imgB = document.getElementById('zoomStreamImgB');
+    imgA.className = 'zoom-layer active-layer';
+    imgB.className = 'zoom-layer inactive-layer';
+    imgB.src = '';
+
+    // WebSocket 60fps 실시간 스트림 연결 (단일 고속 파이프라인)
+    startWsStream(pcId, selectedMonitorIdx);
+
+    // 사운드가 켜져 있는 경우 대상 PC 오디오 스트림으로 자동 스위칭
+    if (isAudioPlaying && remoteAudioPlayer) {
+        remoteAudioPlayer.src = `/api/audio?pc=${encodeURIComponent(pcId)}&t=${Date.now()}`;
+        remoteAudioPlayer.play().catch(e => {});
+    }
+
+    const isHidden = !!(pcObj && pcObj.isBlindMode);
+    const zoomBlindCover = document.getElementById('zoomBlindCover');
+    if (zoomBlindCover) zoomBlindCover.style.display = isHidden ? 'flex' : 'none';
+    if (zoomTouchLayer) zoomTouchLayer.style.pointerEvents = isHidden ? 'none' : 'auto';
+
+    updateRecordBtnLabel();
+    renderMobileChips();
+
+    // 🌟 원격 조작 기본값 = 화면보기 (보기 전용 모드: 마우스/키보드 오작동 원천 차단)
+    isRemoteControlEnabled = false;
+    updateRemoteControlUI();
+    if (isDrawingMode) toggleDrawingMode();
+    clearDraw();
+    setupCanvasDrawing();
+    setTimeout(initAnnotationCanvas, 120);
+}
+
+function toggleZoomGearDrawer(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const drawer = document.getElementById('zoomGearDrawer');
+    if (!drawer) return;
+    drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+}
+
+function closeZoomModal() {
+    if (patrolInterval) stopPatrol();
+    if (isAudioPlaying) {
+        stopAudio();
+    }
+    if (isDrawingMode) toggleDrawingMode();
+    clearDraw();
+    const zoomDrawer = document.getElementById('zoomGearDrawer');
+    if (zoomDrawer) zoomDrawer.style.display = 'none';
+    isRemoteControlEnabled = false;
+    updateRemoteControlUI();
+
+    // WebSocket 스트림 정리
+    if (currentWsStream) {
+        try { currentWsStream.close(); } catch(e) {}
+        currentWsStream = null;
+    }
+
+    currentZoomPcId = null;
+    zoomModal.classList.remove('active');
+    
+    const imgA = document.getElementById('zoomStreamImgA');
+    const imgB = document.getElementById('zoomStreamImgB');
+    if (imgA) imgA.src = '';
+    if (imgB) imgB.src = '';
+    renderMobileChips();
+}
+
+// ---- 💬 6번: 공지 팝업 전송 기능 ----
+function openMsgModal(targetPcId) {
+    const select = document.getElementById('msgTargetSelect');
+    select.innerHTML = '<option value="all">📢 연결된 모든 PC (전체 일괄 공지)</option>';
+    activePcs.forEach((pc, idx) => {
+        const opt = document.createElement('option');
+        opt.value = pc.id;
+        const nickText = pc.nickname ? ` [${pc.nickname}]` : '';
+        opt.innerText = `🖥️ PC ${idx + 1}${nickText} (${pc.name})`;
+        if (targetPcId && targetPcId === pc.id) opt.selected = true;
+        select.appendChild(opt);
+    });
+
+    document.getElementById('msgModalBackdrop').classList.add('active');
+    document.getElementById('msgText').focus();
+}
+
+function closeMsgModal() {
+    document.getElementById('msgModalBackdrop').classList.remove('active');
+    document.getElementById('msgText').value = '';
+}
+
+function sendPopupMessage() {
+    const target = document.getElementById('msgTargetSelect').value;
+    const msg = document.getElementById('msgText').value.trim();
+    if (!msg) {
+        alert('공지 내용을 입력해 주세요.');
+        return;
+    }
+
+    fetch(`/api/control?pc=${encodeURIComponent(target)}&type=popup&msg=${encodeURIComponent(msg)}`);
+    closeMsgModal();
+    showToast('💬 공지 팝업이 성공적으로 전송되었습니다!');
+}
+
+// ---- 🔒 대표님께 화면 가리기 (보안 블라인드 모드) ----
+async function toggleBlindMode(pcId) {
+    const target = pcId || currentZoomPcId;
+    if (!target) return;
+    try {
+        const res = await fetch(`/api/control?pc=${encodeURIComponent(target)}&type=blind_toggle`);
+        const data = await res.json();
+        if (data.isBlindMode) {
+            showToast('🔒 화면 가림막 가동! (대표님 화면에 보안 안내창만 표시됩니다)');
+        } else {
+            showToast('🔓 화면 가림막 해제 완료 (정상 화면 송출 복귀)');
+        }
+        await updatePcList();
+    } catch(e) {
+        showToast('❌ 화면 가림 설정 실패');
+    }
+}
+
+// ---- 🚀 원격 자동 업데이트 일괄 전송 ----
+async function triggerAutoUpdateAll() {
+    if (!confirm('연결된 모든 원격 PC에 최신 버전 자동 업데이트를 전송하시겠습니까?\n\n각 원격 PC가 서버에서 최신 코드를 다운로드받아 1초 내에 자동으로 재시작합니다.')) return;
+    try {
+        const res = await fetch('/api/control?pc=all&type=auto_update');
+        const data = await res.json();
+        showToast('🚀 전체 PC에 원격 자동 업데이트 명령을 전송했습니다!');
+    } catch(e) {
+        showToast('❌ 업데이트 전송 실패');
+    }
+}
+
+// ---- 🛑 원격 PC 프로그램 종료 기능 ----
+function remoteExitPc(pcId) {
+    const target = pcId || currentZoomPcId;
+    if (!target) return;
+    const pc = activePcs.find(p => p.id === target);
+    const name = pc ? (pc.nickname || pc.name) : target;
+    if (confirm(`[${name}] PC의 다연코퍼레이션 프로그램을 원격으로 종료하시겠습니까?`)) {
+        fetch(`/api/control?pc=${encodeURIComponent(target)}&type=exit`);
+        showToast(`🛑 [${name}] 프로그램 종료 신호를 보냈습니다.`);
+        if (currentZoomPcId === target) {
+            setTimeout(closeZoomModal, 500);
+        }
+    }
+}
+
+// ---- 📁 파일 전송 및 일괄 배포 기능 ----
+function openFileSendModal(targetPc) {
+    const input = document.getElementById('globalFileInput');
+    if (!input) return;
+    input.dataset.targetPc = targetPc || currentZoomPcId || 'all';
+    input.value = '';
+    input.click();
+}
+
+function onFileSelected(input) {
+    if (!input || !input.files || input.files.length === 0) return;
+    const targetPc = input.dataset.targetPc || 'all';
+    for (let i = 0; i < input.files.length; i++) {
+        uploadAndSendFile(input.files[i], targetPc);
+    }
+}
+
+async function uploadAndSendFile(file, targetPc) {
+    if (!file) return;
+    const pcObj = activePcs.find(p => p.id === targetPc);
+    const targetName = (targetPc === 'all') ? '전체 PC' : (pcObj && pcObj.nickname ? pcObj.nickname : (pcObj ? pcObj.name : targetPc));
+    showToast(`📁 [${targetName}] 바탕화면으로 파일 전송 중... (${file.name})`);
+    try {
+        const res = await fetch(`/api/upload_file?name=${encodeURIComponent(file.name)}&pc=${encodeURIComponent(targetPc)}`, {
+            method: 'POST',
+            headers: {
+                'X-File-Name': encodeURIComponent(file.name),
+                'X-Target-Pc': encodeURIComponent(targetPc)
+            },
+            body: file
+        });
+        if (res.ok) {
+            showToast(`✅ [${targetName}] 바탕화면으로 파일 전송 완료! (${file.name})`);
+        } else {
+            showToast(`❌ [${targetName}] 파일 전송 실패`);
+        }
+    } catch(e) {
+        showToast(`❌ 전송 실패: ${e.message}`);
+    }
+}
+
+// 🌟 드래그 앤 드롭 파일 전송 (타일, 화면 위로 마우스 끌어다놓기)
+window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+window.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    let targetPc = 'all';
+    if (currentZoomPcId) {
+        targetPc = currentZoomPcId;
+    } else {
+        const tile = e.target.closest('.pc-tile');
+        if (tile && tile.id && tile.id.startsWith('slot-')) {
+            const slotIdx = parseInt(tile.id.replace('slot-', ''));
+            const pc = activePcs[slotIdx];
+            if (pc) targetPc = pc.id;
+        }
+    }
+
+    for (let i = 0; i < files.length; i++) {
+        await uploadAndSendFile(files[i], targetPc);
+    }
+});
+
+// ---- ⚡ 멈춘 프로그램 강제 종료 정리 기능 ----
+function triggerKillHungTasks(pcId) {
+    const target = pcId || currentZoomPcId;
+    if (!target) return;
+    const pc = activePcs.find(p => p.id === target);
+    const name = pc ? (pc.nickname || pc.name) : target;
+    fetch(`/api/control?pc=${encodeURIComponent(target)}&type=kill_hung_tasks`);
+    showToast(`⚡ [${name}] 멈춘 프로그램 정리 명령을 전송했습니다!`);
+}
+
+function triggerKillHungTasksAll() {
+    fetch(`/api/control?pc=all&type=kill_hung_tasks`);
+    showToast('⚡ 전체 PC 멈춘 프로그램 일괄 정리 명령을 전송했습니다!');
+}
+
+// ---- 🔄 원격 PC 전원 관리 (재부팅 / 전원 끄기 - 2중 안전 확인) ----
+function triggerRebootPc(pcId) {
+    const target = pcId || currentZoomPcId;
+    if (!target) return;
+    const pc = activePcs.find(p => p.id === target);
+    const name = pc ? (pc.nickname || pc.name) : target;
+    
+    // 1단계 확인
+    if (!confirm(`[1단계 확인]\n\n'${name}' PC를 지금 원격으로 재부팅하시겠습니까?`)) return;
+    
+    // 2단계 최종 확인
+    if (!confirm(`⚠️ [2단계 최종 확인]\n\n정말로 '${name}' PC를 지금 재부팅하시겠습니까?\n(열려있는 모든 프로그램이 닫힙니다)`)) return;
+    
+    fetch(`/api/control?pc=${encodeURIComponent(target)}&type=reboot`);
+    showToast(`🔄 [${name}] 재부팅 명령을 전송했습니다!`);
+}
+
+function triggerShutdownPc(pcId) {
+    const target = pcId || currentZoomPcId;
+    if (!target) return;
+    const pc = activePcs.find(p => p.id === target);
+    const name = pc ? (pc.nickname || pc.name) : target;
+    
+    // 1단계 확인
+    if (!confirm(`[1단계 확인]\n\n'${name}' PC의 전원을 지금 완전히 끄시겠습니까?`)) return;
+    
+    // 2단계 최종 확인
+    if (!confirm(`🚨 [2단계 최종 확인]\n\n정말로 '${name}' PC의 전원을 지금 끄시겠습니까?\n(컴퓨터가 꺼지면 직접 본체 전원 버튼을 눌러야 켜집니다)`)) return;
+    
+    fetch(`/api/control?pc=${encodeURIComponent(target)}&type=shutdown`);
+    showToast(`🛑 [${name}] 전원 종료 명령을 전송했습니다!`);
+}
+
+function triggerRebootAll() {
+    if (!confirm('🚨 [1단계 확인]\n\n연결된 [전체 PC]를 모두 일괄 재부팅하시겠습니까?')) return;
+    if (!confirm('⚠️ [2단계 최종 확인]\n\n정말로 [전체 PC]를 지금 일괄 재부팅하시겠습니까?\n모든 PC의 작업이 중단됩니다.')) return;
+    
+    fetch(`/api/control?pc=all&type=reboot`);
+    showToast('🔄 전체 PC에 재부팅 명령을 전송했습니다!');
+}
+
+function triggerShutdownAll() {
+    if (!confirm('🚨 [1단계 확인]\n\n연결된 [전체 PC]의 전원을 모두 일괄 종료(끄기)하시겠습니까?')) return;
+    if (!confirm('🚨 [2단계 최종 확인]\n\n정말로 [전체 PC]의 전원을 지금 일괄 종료(끄기)하시겠습니까?\n(꺼진 PC는 직접 전원을 켜야 합니다)')) return;
+    
+    fetch(`/api/control?pc=all&type=shutdown`);
+    showToast('🛑 전체 PC에 전원 종료 명령을 전송했습니다!');
+}
+
+// ---- 실시간 사운드 스트리밍 ----
+let isAudioPlaying = false;
+const remoteAudioPlayer = document.getElementById('remoteAudioPlayer');
+const audioToggleBtn = document.getElementById('audioToggleBtn');
+
+function toggleAudio() {
+    if (isAudioPlaying) {
+        stopAudio();
+    } else {
+        startAudio();
+    }
+}
+
+function startAudio() {
+    if (!currentZoomPcId) return;
+    isAudioPlaying = true;
+    if (audioToggleBtn) {
+        audioToggleBtn.style.background = '#10b981';
+        audioToggleBtn.style.color = '#022c22';
+        audioToggleBtn.style.borderColor = '#10b981';
+        audioToggleBtn.innerText = '🔊 켜짐';
+    }
+    if (remoteAudioPlayer) {
+        remoteAudioPlayer.src = `/api/audio?pc=${encodeURIComponent(currentZoomPcId)}&t=${Date.now()}`;
+        remoteAudioPlayer.play().catch(e => {});
+    }
+}
+
+function stopAudio() {
+    isAudioPlaying = false;
+    if (audioToggleBtn) {
+        audioToggleBtn.style.background = '#1e293b';
+        audioToggleBtn.style.color = '#10b981';
+        audioToggleBtn.style.borderColor = '#10b981';
+        audioToggleBtn.innerText = '🔇 소리';
+    }
+    if (remoteAudioPlayer) {
+        remoteAudioPlayer.pause();
+        remoteAudioPlayer.src = '';
+    }
+}
+
+// ---- 이전 PC / 다음 PC 네비게이션 ----
+async function navPc(direction) {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        const prevMon = parseInt(recordingMonitorIdx) + 1;
+        stopRecording();
+        showToast(`💾 모니터 ${prevMon}번 녹화 자동 저장 완료!`);
+    }
+    if (activePcs.length <= 1) {
+        await updatePcList();
+    }
+    if (activePcs.length === 0) {
+        showToast('연결된 PC가 없습니다.');
+        return;
+    }
+    let idx = activePcs.findIndex(p => p.id === currentZoomPcId);
+    if (idx === -1) idx = 0;
+    idx = (idx + direction + activePcs.length) % activePcs.length;
+    openZoomModal(activePcs[idx].id);
+}
+
+// ---- 5초 자동 순찰 모드 ----
+function togglePatrol() {
+    if (patrolInterval) {
+        stopPatrol();
+    } else {
+        startPatrol();
+    }
+}
+
+function startPatrol() {
+    if (activePcs.length === 0) return;
+    patrolBtn.classList.add('active');
+    patrolBtn.innerText = '⏹️ 순찰 중지';
+    if (!zoomModal.classList.contains('active')) {
+        openZoomModal(activePcs[0].id);
+    }
+    patrolInterval = setInterval(() => {
+        navPc(1);
+    }, 5000);
+}
+
+function stopPatrol() {
+    clearInterval(patrolInterval);
+    patrolInterval = null;
+    patrolBtn.classList.remove('active');
+    patrolBtn.innerText = '🔄 5초 자동순찰';
+}
+
+let currentWsStream = null;
+let latestBitmap = null;
+let isRenderScheduled = false;
+
+function startWsStream(pcId, monIdx) {
+    if (currentWsStream) {
+        try { currentWsStream.close(); } catch(e) {}
+        currentWsStream = null;
+    }
+    if (latestBitmap) {
+        try { latestBitmap.close(); } catch(e) {}
+        latestBitmap = null;
+    }
+
+    const canvas = document.getElementById('zoomStreamCanvas');
+    const imgA = document.getElementById('zoomStreamImgA');
+    const imgB = document.getElementById('zoomStreamImgB');
+    if (canvas) canvas.style.display = 'block';
+    if (imgA) imgA.style.display = 'none';
+    if (imgB) imgB.style.display = 'none';
+
+    let ctx = null;
+    if (canvas) {
+        canvas.style.imageRendering = '-webkit-optimize-contrast';
+        try { 
+            ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); 
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+            }
+        } catch(e) { 
+            ctx = canvas.getContext('2d'); 
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+            }
+        }
+    }
+
+    const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+    const wsUrl = `${proto}//${location.host}/ws/stream?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}`;
+    
+    let ws;
+    try {
+        ws = new WebSocket(wsUrl);
+        ws.binaryType = 'arraybuffer';
+        currentWsStream = ws;
+    } catch(e) {
+        fallbackToMjpeg(pcId, monIdx);
+        return;
+    }
+
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+
+    let stallTimer = null;
+    let lastFrameTime = Date.now();
+
+    function resetStallTimer() {
+        lastFrameTime = Date.now();
+        if (stallTimer) clearInterval(stallTimer);
+        stallTimer = setInterval(() => {
+            if (Date.now() - lastFrameTime > 3000) {
+                console.log('[WS] 프레임 수신 중단 감지 → 자동 재연결');
+                if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
+                try { ws.close(); } catch(e) {}
+            }
+        }, 1000);
+    }
+    resetStallTimer();
+
+    // 🌟 AnyDesk/TeamViewer급 초저지연 프레임 펌프 렌더러 (하드웨어 디코딩 + 큐 적체 0)
+    let isDecoding = false;
+    let pendingBlob = null;
+    let latestSeq = 0;
+    let renderedSeq = 0;
+
+    function pumpFrame() {
+        if (isDecoding || !pendingBlob) return;
+        isDecoding = true;
+        const blobToDecode = pendingBlob;
+        const seq = latestSeq;
+        pendingBlob = null;
+
+        if (window.createImageBitmap && ctx && canvas) {
+            createImageBitmap(blobToDecode).then(bmp => {
+                isDecoding = false;
+                if (seq > renderedSeq) {
+                    renderedSeq = seq;
+                    if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
+                        canvas.width = bmp.width;
+                        canvas.height = bmp.height;
+                    }
+                    ctx.drawImage(bmp, 0, 0);
+                }
+                try { bmp.close(); } catch(x) {}
+                if (pendingBlob) pumpFrame();
+            }).catch(() => {
+                isDecoding = false;
+                if (pendingBlob) pumpFrame();
+            });
+        } else {
+            isDecoding = false;
+            // 폴백 렌더러
+            const url = URL.createObjectURL(blobToDecode);
+            const activeImg = (currentActiveLayer === 'A') ? imgA : imgB;
+            if (activeImg) {
+                const oldUrl = activeImg.src;
+                activeImg.src = url;
+                if (oldUrl && oldUrl.startsWith('blob:')) {
+                    try { URL.revokeObjectURL(oldUrl); } catch(x) {}
+                }
+            }
+        }
+    }
+
+    ws.onmessage = (e) => {
+        if (!e.data || e.data.byteLength === 0) return;
+        lastFrameTime = Date.now();
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsTime >= 1000) {
+            const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+            frameCount = 0;
+            lastFpsTime = now;
+            const fpsBadge = document.getElementById('zoomFpsBadge');
+            if (fpsBadge) {
+                fpsBadge.innerText = `${fps} FPS`;
+                fpsBadge.style.color = fps >= 25 ? '#10b981' : (fps >= 15 ? '#f59e0b' : '#ef4444');
+            }
+        }
+
+        latestSeq++;
+        pendingBlob = new Blob([e.data], { type: 'image/jpeg' });
+        pumpFrame();
+    };
+
+    ws.onerror = () => {
+        if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
+        fallbackToMjpeg(pcId, monIdx);
+    };
+
+    ws.onclose = () => {
+        if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
+        if (currentZoomPcId === pcId) {
+            setTimeout(() => {
+                if (currentZoomPcId === pcId) startWsStream(pcId, selectedMonitorIdx);
+            }, 500);
+        }
+    };
+
+    currentWsStream = ws;
+}
+
+function fallbackToMjpeg(pcId, monIdx) {
+    const canvas = document.getElementById('zoomStreamCanvas');
+    const imgA = document.getElementById('zoomStreamImgA');
+    if (canvas) canvas.style.display = 'none';
+    if (imgA) {
+        imgA.style.display = 'block';
+        imgA.className = 'zoom-layer active-layer';
+        imgA.src = `/api/stream?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}&t=${Date.now()}`;
+        currentActiveLayer = 'A';
+    }
+}
+
+function getActiveZoomImg() {
+    const canvas = document.getElementById('zoomStreamCanvas');
+    if (canvas && canvas.width > 0 && canvas.style.display !== 'none') return canvas;
+    return (currentActiveLayer === 'A') ? document.getElementById('zoomStreamImgA') : document.getElementById('zoomStreamImgB');
+}
+
+function selectMonitor(m) {
+    if (selectedMonitorIdx === m.toString()) return;
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        const prevMon = parseInt(recordingMonitorIdx) + 1;
+        stopRecording();
+        showToast(`💾 모니터 ${prevMon}번 녹화 자동 저장 완료!`);
+    }
+
+    selectedMonitorIdx = m.toString();
+    
+    document.querySelectorAll('.monitor-btn').forEach(b => {
+        if (b.id && b.id.startsWith('monBtn')) b.classList.remove('active');
+    });
+    const targetBtn = document.getElementById('monBtn' + m);
+    if (targetBtn) targetBtn.classList.add('active');
+
+    if (currentZoomPcId) {
+        lastViewedMonitor[currentZoomPcId] = m.toString();
+        try { localStorage.setItem('pc_last_monitors', JSON.stringify(lastViewedMonitor)); } catch(e) {}
+
+        fetch(`/api/control?pc=${encodeURIComponent(currentZoomPcId)}&type=monitor&monitor=${m}`);
+        startWsStream(currentZoomPcId, m);
+        redrawCanvas();
+        updateRecordBtnLabel();
+    }
+}
+
+// ---- 초경량 무부하 화면 녹화 엔진 (모니터별 독립 녹화 및 모니터 전환 시 자동 분할 저장) ----
+let recStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordStartTime = 0;
+let recordTimerInterval = null;
+let recordDrawInterval = null;
+let recordingMonitorIdx = '0';
+let recordingPcId = '';
+
+function updateRecordBtnLabel() {
+    const monNum = parseInt(selectedMonitorIdx) + 1;
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        recordIcon.innerText = '🔴';
+    } else {
+        recordIcon.innerText = '🎥';
+        recordText.innerText = `${monNum}번 모니터 녹화`;
+        recordText.style.display = 'inline';
+    }
+}
+
+function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    const activeImg = getActiveZoomImg();
+    if (!activeImg || !activeImg.src) return;
+
+    recordingMonitorIdx = selectedMonitorIdx;
+    recordingPcId = currentZoomPcId;
+
+    const srcW = activeImg.naturalWidth || 1920;
+    const srcH = activeImg.naturalHeight || 1080;
+    const scale = Math.min(1, 1280 / srcW);
+
+    const recCanvas = document.createElement('canvas');
+    recCanvas.width = Math.round(srcW * scale);
+    recCanvas.height = Math.round(srcH * scale);
+    const recCtx = recCanvas.getContext('2d', { alpha: false });
+
+    try {
+        recStream = recCanvas.captureStream(25);
+    } catch(e) {
+        return;
+    }
+
+    let isDrawing = false;
+    recordDrawInterval = setInterval(() => {
+        if (isDrawing) return;
+        isDrawing = true;
+        try {
+            const currentImg = getActiveZoomImg();
+            if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
+                recCtx.drawImage(currentImg, 0, 0, recCanvas.width, recCanvas.height);
+            }
+        } catch(e) {}
+        isDrawing = false;
+    }, 40); // 25 FPS: CPU/GPU 무부하 초경량 인코딩
+
+    recordedChunks = [];
+    let mimeType = 'video/webm;codecs=vp8';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+    try {
+        mediaRecorder = new MediaRecorder(recStream, { mimeType, videoBitsPerSecond: 2000000 });
+    } catch(e) {
+        mediaRecorder = new MediaRecorder(recStream);
+    }
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        if (recordDrawInterval) {
+            clearInterval(recordDrawInterval);
+            recordDrawInterval = null;
+        }
+        if (recStream) {
+            recStream.getTracks().forEach(track => track.stop());
+            recStream = null;
+        }
+
+        const rawBlob = new Blob(recordedChunks, { type: 'video/webm' });
+        recordedChunks = [];
+        const durationMs = Date.now() - recordStartTime;
+
+        // WebM duration 메타데이터 패치 (탐색 바 드래그 가능하도록)
+        fixWebmDuration(rawBlob, durationMs).then(fixedBlob => {
+            const url = URL.createObjectURL(fixedBlob);
+            const a = document.createElement('a');
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+            
+            const pcObj = activePcs.find(p => p.id === recordingPcId);
+            const nickStr = (pcObj && pcObj.nickname) ? `_${pcObj.nickname}` : '';
+            const pcName = pcObj ? (pcObj.name || recordingPcId) : (recordingPcId || 'PC');
+            const monNum = parseInt(recordingMonitorIdx) + 1;
+
+            a.download = `다연코퍼레이션_${pcName}${nickStr}_모니터${monNum}번_${timeStr}.webm`;
+            a.href = url;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            showToast(`💾 [${pcName}] 모니터 ${monNum}번 녹화 영상이 저장되었습니다.`);
+            updateRecordBtnLabel();
+        });
+    };
+
+    // WebM Duration 패치 함수: EBML Duration 엘리먼트를 찾아 실제 녹화 시간으로 덮어쓰기
+    async function fixWebmDuration(blob, durationMs) {
+        try {
+            const buf = await blob.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            // Duration EBML ID: 0x44 0x89
+            for (let i = 0; i < bytes.length - 12; i++) {
+                if (bytes[i] === 0x44 && bytes[i+1] === 0x89) {
+                    // 다음 바이트가 size (보통 0x88 = 8바이트 float)
+                    if (bytes[i+2] === 0x88) {
+                        const dv = new DataView(buf, i + 3, 8);
+                        dv.setFloat64(0, durationMs * 1000000); // 나노초 단위
+                        return new Blob([buf], { type: 'video/webm' });
+                    }
+                    // size가 0x84 (4바이트 float)일 경우
+                    if (bytes[i+2] === 0x84) {
+                        const dv = new DataView(buf, i + 3, 4);
+                        dv.setFloat32(0, durationMs);
+                        return new Blob([buf], { type: 'video/webm' });
+                    }
+                }
+            }
+        } catch(e) {}
+        return blob; // 패치 실패 시 원본 반환
+    }
+
+    mediaRecorder.start(1000);
+    recordStartTime = Date.now();
+    recordBtn.classList.add('recording');
+    const monNum = parseInt(recordingMonitorIdx) + 1;
+    recordIcon.innerText = '🔴';
+    recordText.innerText = `${monNum}번 (00:00)`;
+    recordText.style.display = 'inline';
+
+    recordTimerInterval = setInterval(() => {
+        const diffSec = Math.floor((Date.now() - recordStartTime) / 1000);
+        const min = String(Math.floor(diffSec / 60)).padStart(2, '0');
+        const sec = String(diffSec % 60).padStart(2, '0');
+        const mNum = parseInt(recordingMonitorIdx) + 1;
+        recordText.innerText = `${mNum}번 (${min}:${sec})`;
+    }, 1000);
+
+    showToast(`🎥 모니터 ${monNum}번 화면 녹화 시작!`);
+}
+
+function stopRecording() {
+    if (recordDrawInterval) {
+        clearInterval(recordDrawInterval);
+        recordDrawInterval = null;
+    }
+    if (recordTimerInterval) {
+        clearInterval(recordTimerInterval);
+        recordTimerInterval = null;
+    }
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    recordBtn.classList.remove('recording');
+    updateRecordBtnLabel();
+}
+
+// ---- 상대좌표 계산 ----
+function getLayerRelCoords(layer, e) {
+    const activeImg = getActiveZoomImg() || document.getElementById('zoomStreamImgA') || layer;
+    const rect = (activeImg && activeImg.getBoundingClientRect) ? activeImg.getBoundingClientRect() : layer.getBoundingClientRect();
+    const natW = (activeImg && (activeImg.naturalWidth || activeImg.videoWidth || activeImg.width)) || 1920;
+    const natH = (activeImg && (activeImg.naturalHeight || activeImg.videoHeight || activeImg.height)) || 1080;
+    const natAR = (natH > 0) ? (natW / natH) : (16 / 9);
+    const boxW = rect.width || 1920, boxH = rect.height || 1080, boxAR = boxW / boxH;
+    let rW, rH, oX, oY;
+    if (boxAR > natAR) { rH = boxH; rW = boxH * natAR; oX = (boxW - rW) / 2; oY = 0; }
+    else { rW = boxW; rH = boxW / natAR; oX = 0; oY = (boxH - rH) / 2; }
+    
+    let clientX = 0;
+    let clientY = 0;
+    if (e) {
+        if (e.clientX !== undefined) {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        }
+    }
+
+    let relX = rW > 0 ? (clientX - rect.left - oX) / rW : 0.5;
+    let relY = rH > 0 ? (clientY - rect.top - oY) / rH : 0.5;
+    return {
+        relX: Math.max(0, Math.min(1, relX)).toFixed(4),
+        relY: Math.max(0, Math.min(1, relY)).toFixed(4)
+    };
+}
+
+function showRipple(x, y) {
+    if (x === undefined || y === undefined) return;
+    const r = document.createElement('div');
+    r.className = 'click-ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 400);
+}
+
+// ---- 🎮 원격 조작 활성화 / 보기 전용 모드 토글 (기본값: 보기 전용) ----
+let isRemoteControlEnabled = false;
+
+function updateRemoteControlUI() {
+    const btn = document.getElementById('remoteCtrlToggleBtn');
+    const touchLayer = document.getElementById('zoomTouchLayer');
+    if (!btn) return;
+
+    if (isRemoteControlEnabled) {
+        btn.className = 'control-toggle-btn active';
+        btn.innerText = '⚡ 원격제어 중';
+        if (touchLayer) touchLayer.style.cursor = 'default';
+    } else {
+        btn.className = 'control-toggle-btn';
+        btn.innerText = '👀 화면보기';
+        if (touchLayer) touchLayer.style.cursor = 'default';
+    }
+}
+
+function toggleRemoteControl() {
+    try {
+        isRemoteControlEnabled = !isRemoteControlEnabled;
+        if (isRemoteControlEnabled && isDrawingMode) {
+            toggleDrawingMode();
+        }
+        updateRemoteControlUI();
+        if (isRemoteControlEnabled) {
+            showToast('🎮 원격제어가 켜졌습니다. (화면 조작 가능)');
+        } else {
+            showToast('👀 화면보기 모드입니다. (화면 조작 차단)');
+        }
+    } catch(e) {
+        alert('원격제어 토글 오류: ' + e.message);
+    }
+}
+
+// ---- ✏️ 화면 그리기 (펜 / 형광펜 도구) 엔진 ----
+let isDrawingMode = false;
+let drawColor = '#ef4444';
+let drawSize = 6;
+let drawHistory = [];
+let currentDrawPath = null;
+let isPenDown = false;
+
+function initAnnotationCanvas() {
+    const canvas = document.getElementById('annotationCanvas');
+    if (!canvas) return;
+    const body = document.getElementById('zoomBody');
+    if (body) {
+        canvas.width = body.clientWidth || 1280;
+        canvas.height = body.clientHeight || 720;
+        redrawCanvas();
+    }
+}
+window.addEventListener('resize', initAnnotationCanvas);
+
+function toggleDrawingMode() {
+    try {
+    isDrawingMode = !isDrawingMode;
+    const bar = document.getElementById('drawingToolbar');
+    const btn = document.getElementById('drawingToggleBtn');
+    const canvas = document.getElementById('annotationCanvas');
+    const touchLayer = document.getElementById('zoomTouchLayer');
+
+    if (isDrawingMode) {
+        if (isRemoteControlEnabled) {
+            isRemoteControlEnabled = false;
+            updateRemoteControlUI();
+        }
+        if (bar) bar.style.display = 'flex';
+        const stampBar = document.getElementById('stampToolbar');
+        if (stampBar) stampBar.style.display = 'flex';
+        if (btn) { btn.style.background = '#f59e0b'; btn.style.color = '#0f172a'; }
+        if (canvas) {
+            canvas.style.zIndex = '35';
+            canvas.style.pointerEvents = 'auto';
+            canvas.style.cursor = 'crosshair';
+            initAnnotationCanvas();
+        }
+        if (touchLayer) touchLayer.style.pointerEvents = 'none';
+    } else {
+        if (bar) bar.style.display = 'none';
+        const stampBar = document.getElementById('stampToolbar');
+        if (stampBar) stampBar.style.display = 'none';
+        activeStampType = null;
+        document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('stamp-active'));
+        if (btn) { btn.style.background = '#1e293b'; btn.style.color = '#fbbf24'; }
+        if (canvas) {
+            canvas.style.zIndex = '15';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.cursor = 'default';
+        }
+        if (touchLayer) touchLayer.style.pointerEvents = 'auto';
+        isRemoteControlEnabled = false;
+        updateRemoteControlUI();
+    }
+    } catch(e) {
+        alert('그리기 토글 오류: ' + e.message);
+    }
+}
+
+function setDrawColor(c) {
+    drawColor = c;
+    document.querySelectorAll('.draw-color-btn').forEach(b => b.classList.remove('active'));
+    const btnMap = { '#ef4444': 'drawColorRed', '#facc15': 'drawColorYellow', '#22c55e': 'drawColorGreen', '#38bdf8': 'drawColorBlue', '#ffffff': 'drawColorWhite' };
+    if (btnMap[c]) {
+        const targetBtn = document.getElementById(btnMap[c]);
+        if (targetBtn) targetBtn.classList.add('active');
+    }
+}
+
+function setDrawSize(s) {
+    drawSize = parseInt(s) || 6;
+}
+
+let stampHistory = [];
+
+function redrawCanvas() {
+    const canvas = document.getElementById('annotationCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 일반 펜/형광펜 선 그리기
+    for (const path of drawHistory) {
+        if (!path.points || path.points.length < 1) continue;
+        if (path.monitor !== undefined && path.monitor !== selectedMonitorIdx) continue;
+        if (path.pc && currentZoomPcId && path.pc !== currentZoomPcId) continue;
+
+        ctx.beginPath();
+        ctx.strokeStyle = path.color;
+        ctx.lineWidth = path.size;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = path.color;
+        ctx.shadowBlur = 4;
+
+        ctx.moveTo(path.points[0].x, path.points[0].y);
+        for (let i = 1; i < path.points.length; i++) {
+            ctx.lineTo(path.points[i].x, path.points[i].y);
+        }
+        ctx.stroke();
+    }
+
+    // 2. 🎨 고화질 이모지 스티커 스탬프 렌더링
+    for (const st of stampHistory) {
+        if (st.monitor !== undefined && st.monitor !== selectedMonitorIdx) continue;
+        if (st.pc && currentZoomPcId && st.pc !== currentZoomPcId) continue;
+
+        const sx = (st.x !== undefined) ? st.x : (st.relX || 0.5) * canvas.width;
+        const sy = (st.y !== undefined) ? st.y : (st.relY || 0.5) * canvas.height;
+        const fSize = st.size || 56;
+
+        ctx.save();
+        ctx.font = `${fSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 10;
+        ctx.fillText(st.emoji, sx, sy);
+        ctx.restore();
+    }
+}
+
+function sendDrawStrokeToRemote(path, isUpdate) {
+    const pts = path.points.map(p => {
+        const rx = (typeof p.relX === 'number') ? p.relX.toFixed(4) : (parseFloat(p.relX) || 0).toFixed(4);
+        const ry = (typeof p.relY === 'number') ? p.relY.toFixed(4) : (parseFloat(p.relY) || 0).toFixed(4);
+        return `${rx},${ry}`;
+    }).join(';');
+    sendControlCmd({ 
+        type: isUpdate ? 'draw_update' : 'draw_stroke', 
+        key: path.color, 
+        relX: path.size, 
+        monitor: path.monitor || selectedMonitorIdx,
+        msg: pts 
+    });
+}
+
+function sendDrawStampToRemote(st) {
+    const rx = (typeof st.relX === 'number') ? st.relX.toFixed(4) : (parseFloat(st.relX) || 0.5).toFixed(4);
+    const ry = (typeof st.relY === 'number') ? st.relY.toFixed(4) : (parseFloat(st.relY) || 0.5).toFixed(4);
+    sendControlCmd({
+        type: 'draw_stamp',
+        key: st.emoji,
+        relX: st.size || 56,
+        monitor: st.monitor || selectedMonitorIdx,
+        msg: `${rx},${ry}`
+    });
+}
+
+function clearRemoteDraw() {
+    sendControlCmd({ type: 'draw_clear', monitor: selectedMonitorIdx });
+}
+
+function clearDraw(showNotification = false) {
+    const hadDrawings = drawHistory.some(p => p.monitor === selectedMonitorIdx && (!p.pc || p.pc === currentZoomPcId)) ||
+                        stampHistory.some(s => s.monitor === selectedMonitorIdx && (!s.pc || s.pc === currentZoomPcId));
+    drawHistory = drawHistory.filter(p => !(p.monitor === selectedMonitorIdx && (!p.pc || p.pc === currentZoomPcId)));
+    stampHistory = stampHistory.filter(s => !(s.monitor === selectedMonitorIdx && (!s.pc || s.pc === currentZoomPcId)));
+    redrawCanvas();
+    clearRemoteDraw();
+    if (showNotification && hadDrawings) {
+        showToast('🧼 현재 모니터의 모든 필기 및 스탬프가 지워졌습니다.');
+    }
+}
+
+function undoDraw() {
+    if (stampHistory.length > 0) {
+        stampHistory.pop();
+        redrawCanvas();
+        clearRemoteDraw();
+        drawHistory.filter(p => p.monitor === selectedMonitorIdx && (!p.pc || p.pc === currentZoomPcId)).forEach(p => sendDrawStrokeToRemote(p));
+        stampHistory.filter(s => s.monitor === selectedMonitorIdx && (!s.pc || s.pc === currentZoomPcId)).forEach(s => sendDrawStampToRemote(s));
+        return;
+    }
+    const idx = drawHistory.map((p, i) => (p.monitor === selectedMonitorIdx && (!p.pc || p.pc === currentZoomPcId)) ? i : -1).filter(i => i >= 0).pop();
+    if (idx !== undefined) {
+        drawHistory.splice(idx, 1);
+        redrawCanvas();
+        clearRemoteDraw();
+        drawHistory.filter(p => p.monitor === selectedMonitorIdx && (!p.pc || p.pc === currentZoomPcId)).forEach(p => sendDrawStrokeToRemote(p));
+        stampHistory.filter(s => s.monitor === selectedMonitorIdx && (!s.pc || s.pc === currentZoomPcId)).forEach(s => sendDrawStampToRemote(s));
+    }
+}
+
+// ---- 🎨 고화질 이모지 스티커 스탬프 시스템 ----
+let activeStampType = null;
+
+function activateStamp(emoji) {
+    document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('stamp-active'));
+    if (activeStampType === emoji) {
+        activeStampType = null;
+        showToast('🎨 스탬프 모드 해제');
+        return;
+    }
+    activeStampType = emoji;
+    showToast(`${emoji} 스탬프 선택! 원하는 위치를 클릭하세요`);
+    document.querySelectorAll('.stamp-btn').forEach(b => {
+        if (b.innerText.trim() === emoji || (b.title && b.title.includes(emoji))) {
+            b.classList.add('stamp-active');
+        }
+    });
+}
+
+function placeStampAt(x, y, relX, relY) {
+    if (!activeStampType) return false;
+    const numericRelX = parseFloat(relX) || 0.5;
+    const numericRelY = parseFloat(relY) || 0.5;
+
+    const stampObj = {
+        emoji: activeStampType,
+        size: 56,
+        x: x,
+        y: y,
+        relX: numericRelX,
+        relY: numericRelY,
+        monitor: selectedMonitorIdx,
+        pc: currentZoomPcId
+    };
+
+    stampHistory.push(stampObj);
+    sendDrawStampToRemote(stampObj);
+    redrawCanvas();
+    showToast(`${activeStampType} 스탬프 쾅!`);
+    return true;
+}
+// ---- 스탬프 끝 ----
+
+let isCanvasDrawingSetup = false;
+function setupCanvasDrawing() {
+    const canvas = document.getElementById('annotationCanvas');
+    if (!canvas || isCanvasDrawingSetup) return;
+    isCanvasDrawingSetup = true;
+
+    function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+        const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+        const rel = getLayerRelCoords(canvas, e);
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height),
+            relX: rel.relX,
+            relY: rel.relY
+        };
+    }
+
+    function startDraw(e) {
+        if (!isDrawingMode) return;
+        if (e.preventDefault) e.preventDefault();
+        
+        // 🎨 스탬프 모드: 클릭 위치에 스탬프 찍기
+        if (activeStampType) {
+            const p = getCanvasPos(e);
+            placeStampAt(p.x, p.y, p.relX, p.relY);
+            return;
+        }
+        
+        isPenDown = true;
+        const p = getCanvasPos(e);
+        currentDrawPath = { 
+            color: drawColor, 
+            size: drawSize, 
+            points: [p, p], 
+            monitor: selectedMonitorIdx, 
+            pc: currentZoomPcId 
+        };
+        drawHistory.push(currentDrawPath);
+        redrawCanvas();
+    }
+
+    let lastStreamTime = 0;
+    function moveDraw(e) {
+        if (!isDrawingMode || !isPenDown) return;
+        if (e.preventDefault) e.preventDefault();
+        const p = getCanvasPos(e);
+        if (currentDrawPath && currentDrawPath.points) {
+            currentDrawPath.points.push(p);
+            redrawCanvas();
+            const now = Date.now();
+            if (now - lastStreamTime > 100 && currentDrawPath.points.length >= 2) {
+                lastStreamTime = now;
+                sendDrawStrokeToRemote(currentDrawPath, true);
+            }
+        }
+    }
+
+    function endDraw(e) {
+        if (isPenDown) {
+            isPenDown = false;
+            if (currentDrawPath && currentDrawPath.points && currentDrawPath.points.length >= 2) {
+                sendDrawStrokeToRemote(currentDrawPath, false);
+            }
+            currentDrawPath = null;
+            redrawCanvas();
+        }
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    window.addEventListener('mouseup', endDraw);
+
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', moveDraw, { passive: false });
+    canvas.addEventListener('touchend', endDraw);
+}
+
+// ---- 📋 클립보드 복사 / 텍스트 원격 붙여넣기 ----
+function openClipboardModal() {
+    const modal = document.getElementById('clipboardModalBackdrop');
+    const input = document.getElementById('clipboardInputText');
+    if (modal) modal.classList.add('active');
+    if (input) {
+        input.value = '';
+        if (navigator.clipboard && navigator.clipboard.readText) {
+            navigator.clipboard.readText().then(clipText => {
+                if (clipText) input.value = clipText;
+            }).catch(() => {});
+        }
+        setTimeout(() => input.focus(), 100);
+    }
+}
+
+function closeClipboardModal(e) {
+    if (e && e.target && e.target.id !== 'clipboardModalBackdrop' && e.target.tagName !== 'BUTTON') return;
+    const modal = document.getElementById('clipboardModalBackdrop');
+    if (modal) modal.classList.remove('active');
+}
+
+async function pasteTextToRemote() {
+    const input = document.getElementById('clipboardInputText');
+    const text = input ? input.value : '';
+    if (!text) {
+        showToast('붙여넣을 텍스트를 입력해주세요.');
+        return;
+    }
+    sendControlCmd({ type: 'paste_text', msg: text });
+    showToast('✅ 원격 PC로 텍스트 붙여넣기 완료!');
+    closeClipboardModal();
+}
+
+function sendControlCmd(cmdData) {
+    if (!cmdData || !cmdData.type) return;
+    if (!cmdData.pc) cmdData.pc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+    if (!cmdData.pc) return;
+    if (cmdData.monitor === undefined) cmdData.monitor = selectedMonitorIdx || '0';
+
+    // ⚡ 1. 초고속 WebSocket 직통 전송
+    if (currentWsStream && currentWsStream.readyState === WebSocket.OPEN) {
+        try { currentWsStream.send(JSON.stringify(cmdData)); } catch(e) {}
+    }
+
+    // ⚡ 2. HTTP 직통 제어 전송 (100% 도달 보장)
+    let url = `/api/control?pc=${encodeURIComponent(cmdData.pc)}&type=${encodeURIComponent(cmdData.type)}`;
+    if (cmdData.relX !== undefined) url += `&relX=${encodeURIComponent(cmdData.relX)}`;
+    if (cmdData.relY !== undefined) url += `&relY=${encodeURIComponent(cmdData.relY)}`;
+    if (cmdData.monitor !== undefined) url += `&monitor=${encodeURIComponent(cmdData.monitor)}`;
+    if (cmdData.key !== undefined) url += `&key=${encodeURIComponent(cmdData.key)}`;
+    if (cmdData.msg !== undefined) url += `&msg=${encodeURIComponent(cmdData.msg)}`;
+    if (cmdData.delta !== undefined) url += `&delta=${encodeURIComponent(cmdData.delta)}`;
+
+    fetch(url, { keepalive: true }).catch(() => {});
+}
+
+function sendRemoteHotkey(combo) {
+    sendControlCmd({ type: 'hotkey', key: combo });
+}
+
+function sendZoomControl(type, e) {
+    if (!isRemoteControlEnabled) return;
+    const { relX, relY } = getLayerRelCoords(zoomTouchLayer, e);
+    if (type === 'click' || type === 'dblclick' || type === 'rightclick') showRipple(e.clientX, e.clientY);
+    sendControlCmd({ type, relX, relY });
+}
+
+// ---- 데스크톱 마우스 조작 ----
+let isMouseDown = false;
+let isDragging = false;
+let isDragSent = false;
+let mouseStartX = 0;
+let mouseStartY = 0;
+let mouseStartTime = 0;
+let lastRemoteRightClickTime = 0;
+let lastClickTime = 0;
+let dragMoveThrottle = null;
+
+function sendRemoteRightClick(e) {
+    if (!isRemoteControlEnabled) return;
+    const now = Date.now();
+    if (now - lastRemoteRightClickTime < 250) return;
+    lastRemoteRightClickTime = now;
+    sendZoomControl('rightclick', e);
+}
+
+let lastViewOnlyToastTime = 0;
+zoomTouchLayer.addEventListener('mousedown', e => {
+    if (!isRemoteControlEnabled) {
+        const now = Date.now();
+        if (now - lastViewOnlyToastTime > 3000) {
+            lastViewOnlyToastTime = now;
+            showToast('💡 현재 [화면보기] 모드입니다. 원격 조작은 상단의 [👀 화면보기] 버튼을 눌러주세요!');
+        }
+        return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.button === 2) {
+        sendRemoteRightClick(e);
+        return;
+    }
+
+    if (e.button === 0) {
+        isMouseDown = true;
+        isDragging = false;
+        isDragSent = false;
+        mouseStartX = e.clientX;
+        mouseStartY = e.clientY;
+        mouseStartTime = Date.now();
+    }
+});
+
+zoomTouchLayer.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isRemoteControlEnabled) {
+        sendRemoteRightClick(e);
+    }
+});
+
+zoomTouchLayer.addEventListener('mousemove', e => {
+    if (!isRemoteControlEnabled) return;
+    e.preventDefault();
+
+    if (isMouseDown) {
+        const dist = Math.hypot(e.clientX - mouseStartX, e.clientY - mouseStartY);
+        if (dist > 6) {
+            isDragging = true;
+            if (!isDragSent) {
+                isDragSent = true;
+                sendZoomControl('mousedown', { clientX: mouseStartX, clientY: mouseStartY });
+            }
+            if (dragMoveThrottle) return;
+            dragMoveThrottle = setTimeout(() => { dragMoveThrottle = null; }, 25);
+            sendZoomControl('mousemove', e);
+        }
+    }
+});
+
+window.addEventListener('mouseup', e => {
+    if (!isRemoteControlEnabled || !isMouseDown) return;
+    isMouseDown = false;
+
+    if (isDragSent) {
+        isDragSent = false;
+        isDragging = false;
+        sendZoomControl('mouseup', e);
+    } else {
+        isDragging = false;
+        const now = Date.now();
+        if (now - lastClickTime < 300) {
+            sendZoomControl('dblclick', e);
+            lastClickTime = 0;
+        } else {
+            sendZoomControl('click', e);
+            lastClickTime = now;
+        }
+    }
+});
+
+// ---- 마우스 휠 스크롤 제어 ----
+let wheelThrottle = null;
+zoomTouchLayer.addEventListener('wheel', e => {
+    if (!isRemoteControlEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (wheelThrottle) return;
+    wheelThrottle = setTimeout(() => { wheelThrottle = null; }, 25);
+
+    const { relX, relY } = getLayerRelCoords(zoomTouchLayer, e);
+    const scrollDelta = e.deltaY > 0 ? -120 : 120;
+    sendControlCmd({ type: 'wheel', relX, relY, delta: scrollDelta });
+}, { passive: false });
+
+// ---- 모바일 터치 조작 & 좌우 스와이프 제스처 ----
+let touchStartTime = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchMoved = false;
+let touchDragSent = false;
+let longPressTimer = null;
+let lastTapTime = 0;
+let touchThrottle = null;
+
+zoomTouchLayer.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    if (!isRemoteControlEnabled) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    touchStartTime = Date.now();
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchMoved = false;
+    touchDragSent = false;
+
+    longPressTimer = setTimeout(() => {
+        if (!touchMoved) {
+            sendZoomControl('rightclick', { clientX: touchStartX, clientY: touchStartY });
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
+    }, 500);
+}, { passive: false });
+
+zoomTouchLayer.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+    if (!isRemoteControlEnabled) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+    const dist = Math.hypot(diffX, diffY);
+
+    if (dist > 6) {
+        touchMoved = true;
+        clearTimeout(longPressTimer);
+
+        if (!touchDragSent) {
+            touchDragSent = true;
+            sendZoomControl('mousedown', { clientX: touchStartX, clientY: touchStartY });
+        }
+        if (!touchThrottle) {
+            touchThrottle = setTimeout(() => { touchThrottle = null; }, 25);
+            sendZoomControl('mousemove', touch);
+        }
+    }
+}, { passive: false });
+
+zoomTouchLayer.addEventListener('touchend', e => {
+    if (!isRemoteControlEnabled) return;
+    clearTimeout(longPressTimer);
+    const duration = Date.now() - touchStartTime;
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+    const absX = Math.abs(diffX);
+    const absY = Math.abs(diffY);
+
+    if (touchDragSent) {
+        touchDragSent = false;
+        sendZoomControl('mouseup', touch);
+        return;
+    }
+
+    if (!touchMoved && duration < 350) {
+        const now = Date.now();
+        if (now - lastTapTime < 280) {
+            sendZoomControl('dblclick', touch);
+            lastTapTime = 0;
+        } else {
+            sendZoomControl('click', touch);
+            lastTapTime = now;
+        }
+        return;
+    }
+
+    if (absX > 60 && absY < 50 && duration < 400) {
+        if (diffX > 0) navPc(-1);
+        else navPc(1);
+    }
+});
+
+setTimeout(setupCanvasDrawing, 200);
+
+function toggleHangul() {
+    sendControlCmd({ type: 'keydown', key: 'HangulMode' });
+}
+
+// ---- 키보드 입력 ----
+window.addEventListener('keydown', e => {
+    if (!zoomModal.classList.contains('active')) return;
+
+    // ESC 키 누르면 전체 화면 최소화(닫기)
+    if ((e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        closeZoomModal();
+        return;
+    }
+
+    // 🌟 [ 및 ] 키는 언제든 이전/다음 PC 전환
+    if ((e.key === '[' || e.key === ']') && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        navPc(e.key === '[' ? -1 : 1);
+        return;
+    }
+
+    // 🌟 보기 전용 모드일 때는 좌/우 방향키로 바로 이전/다음 PC 전환!
+    if (!isRemoteControlEnabled) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); navPc(-1); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); navPc(1); return; }
+        return;
+    }
+
+    // 🌟 원격제어 중일 때 Alt+좌우 또는 Ctrl+좌우로 이전/다음 PC 전환
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && (e.altKey || (e.ctrlKey && e.shiftKey))) {
+        e.preventDefault();
+        navPc(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+    }
+
+    // 한/영 키 완벽 감지 (오른쪽 Alt / AltRight / HangulMode / VK_HANGUL(21))
+    if (e.key === 'HangulMode' || e.code === 'HangulMode' || e.code === 'AltRight' || (e.key === 'Alt' && e.location === 2) || e.keyCode === 21) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleHangul();
+        return;
+    }
+
+    if (e.key === 'HanjaMode' || e.code === 'HanjaMode' || e.keyCode === 25) {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetPc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+        fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=keydown&key=HanjaMode&monitor=${selectedMonitorIdx}`);
+        return;
+    }
+
+    let baseKey = e.key;
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar' || e.keyCode === 32) {
+        baseKey = 'Space';
+    } else if (e.code && e.code.startsWith('Key') && e.code.length === 4) {
+        baseKey = e.code.substring(3).toLowerCase();
+    } else if (e.code && e.code.startsWith('Digit') && e.code.length === 6) {
+        baseKey = e.code.substring(5);
+    } else if (e.code === 'ArrowLeft' || e.key === 'ArrowLeft') {
+        baseKey = 'ArrowLeft';
+    } else if (e.code === 'ArrowRight' || e.key === 'ArrowRight') {
+        baseKey = 'ArrowRight';
+    } else if (e.code === 'ArrowUp' || e.key === 'ArrowUp') {
+        baseKey = 'ArrowUp';
+    } else if (e.code === 'ArrowDown' || e.key === 'ArrowDown') {
+        baseKey = 'ArrowDown';
+    } else if (e.key === 'Shift' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        baseKey = 'Shift';
+    }
+
+    // 🌟 모든 조합 단축키 (Shift+방향키, Ctrl+방향키, Ctrl+A~Z, Alt+Tab 등) 완벽 지원
+    if (e.ctrlKey || e.altKey || e.metaKey || (e.shiftKey && baseKey !== 'Shift')) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const targetPc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+
+        // 🌟 Ctrl+C를 눌렀을 때 -> 원격 복사 타임스탬프 기록
+        if (e.ctrlKey && (baseKey === 'c' || e.code === 'KeyC') && !e.altKey && !e.shiftKey) {
+            lastRemoteCopyTimestamp = Date.now();
+            fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=ctrl+c&monitor=${selectedMonitorIdx}`);
+            return;
+        }
+
+        // 🌟 Ctrl+V를 눌렀을 때 -> 원격 복사 우선 vs 로컬 복사 똑똑하게 구분
+        if (e.ctrlKey && (baseKey === 'v' || e.code === 'KeyV') && !e.altKey && !e.shiftKey) {
+            // 원격 PC에서 최근 복사(Ctrl+C 또는 원격 드래그)한 경우 -> 원격 PC의 클립보드 내용을 그대로 붙여넣기
+            if (lastRemoteCopyTimestamp > lastLocalCopyTimestamp && (Date.now() - lastRemoteCopyTimestamp < 300000)) {
+                fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=ctrl+v&monitor=${selectedMonitorIdx}`);
+                return;
+            }
+
+            // 내 PC(로컬)에서 새로 복사해온 경우 -> 내 PC 클립보드를 원격으로 주입
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(clipText => {
+                    if (clipText && clipText.length > 0) {
+                        fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=paste_text&msg=${encodeURIComponent(clipText)}&monitor=${selectedMonitorIdx}`);
+                    } else {
+                        fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=ctrl+v&monitor=${selectedMonitorIdx}`);
+                    }
+                }).catch(() => {
+                    fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=ctrl+v&monitor=${selectedMonitorIdx}`);
+                });
+            } else {
+                fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=ctrl+v&monitor=${selectedMonitorIdx}`);
+            }
+            return;
+        }
+
+        let combo = [];
+        if (e.ctrlKey) combo.push('ctrl');
+        if (e.altKey) combo.push('alt');
+        if (e.shiftKey) combo.push('shift');
+        if (e.metaKey) combo.push('win');
+        combo.push(baseKey);
+        const comboStr = combo.join('+');
+        fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=hotkey&key=${encodeURIComponent(comboStr)}&monitor=${selectedMonitorIdx}`);
+        return;
+    }
+
+    e.preventDefault();
+    const targetPc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+    fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=keydown&key=${encodeURIComponent(baseKey)}&monitor=${selectedMonitorIdx}`);
+});
+
+// ---- 모바일 뷰 전환 ----
+function setMobileView(view) {
+    currentMobileView = view;
+    document.getElementById('mobView1Col').classList.toggle('active', view === '1col');
+    document.getElementById('mobView2Col').classList.toggle('active', view === '2col');
+    cctvGrid.className = 'cctv-grid ' + (view === '1col' ? 'mobile-grid-1col' : 'mobile-grid-2col');
+}
+
+// ---- PC 그리드 모드 ----
+function setGrid(mode) {
+    currentGridMode = mode;
+    document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+    const btnMap = { 20: 'gridBtn20', 'auto': 'gridBtnAuto', 4: 'gridBtn4', 1: 'gridBtn1' };
+    const targetBtn = document.getElementById(btnMap[mode]);
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    renderGrid();
+}
+
+// 초기 실행: DOM 대기 없이 즉시 그리드 생성 및 PC 목록 호출
+try {
+    ensureGridSlots();
+    setupCanvasDrawing();
+    updatePcList();
+} catch(e) {
+    console.error('Initial setup error:', e);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    ensureGridSlots();
+    setupCanvasDrawing();
+    updatePcList();
+});
+
+window.onload = async () => {
+    ensureGridSlots();
+    setupCanvasDrawing();
+    await updatePcList();
+    if (!window._pcListInterval) {
+        window._pcListInterval = setInterval(updatePcList, 3000);
+    }
+};
+</script>
+</body>
+</html>
