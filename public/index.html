@@ -3083,21 +3083,27 @@ function sendControlCmd(cmdData) {
     if (!cmdData.pc) return;
     if (cmdData.monitor === undefined) cmdData.monitor = selectedMonitorIdx || '0';
 
-    // ⚡ 1. 초고속 WebSocket 직통 전송
+    // ⚡ 1. 초고속 WebSocket 직통 전송 (0ms 지연)
+    let wsSent = false;
     if (currentWsStream && currentWsStream.readyState === WebSocket.OPEN) {
-        try { currentWsStream.send(JSON.stringify(cmdData)); } catch(e) {}
+        try {
+            currentWsStream.send(JSON.stringify(cmdData));
+            wsSent = true;
+        } catch(e) {}
     }
 
-    // ⚡ 2. HTTP 직통 제어 전송 (100% 도달 보장)
-    let url = `/api/control?pc=${encodeURIComponent(cmdData.pc)}&type=${encodeURIComponent(cmdData.type)}`;
-    if (cmdData.relX !== undefined) url += `&relX=${encodeURIComponent(cmdData.relX)}`;
-    if (cmdData.relY !== undefined) url += `&relY=${encodeURIComponent(cmdData.relY)}`;
-    if (cmdData.monitor !== undefined) url += `&monitor=${encodeURIComponent(cmdData.monitor)}`;
-    if (cmdData.key !== undefined) url += `&key=${encodeURIComponent(cmdData.key)}`;
-    if (cmdData.msg !== undefined) url += `&msg=${encodeURIComponent(cmdData.msg)}`;
-    if (cmdData.delta !== undefined) url += `&delta=${encodeURIComponent(cmdData.delta)}`;
+    // ⚡ 2. WebSocket 미연결이거나 주요 액션 시에만 HTTP 보완 전송
+    if (!wsSent || cmdData.type === 'click' || cmdData.type === 'rightclick' || cmdData.type === 'dblclick' || cmdData.type === 'hotkey' || cmdData.type === 'keydown' || cmdData.type === 'monitor' || cmdData.type === 'select_monitor') {
+        let url = `/api/control?pc=${encodeURIComponent(cmdData.pc)}&type=${encodeURIComponent(cmdData.type)}`;
+        if (cmdData.relX !== undefined) url += `&relX=${encodeURIComponent(cmdData.relX)}`;
+        if (cmdData.relY !== undefined) url += `&relY=${encodeURIComponent(cmdData.relY)}`;
+        if (cmdData.monitor !== undefined) url += `&monitor=${encodeURIComponent(cmdData.monitor)}`;
+        if (cmdData.key !== undefined) url += `&key=${encodeURIComponent(cmdData.key)}`;
+        if (cmdData.msg !== undefined) url += `&msg=${encodeURIComponent(cmdData.msg)}`;
+        if (cmdData.delta !== undefined) url += `&delta=${encodeURIComponent(cmdData.delta)}`;
 
-    fetch(url, { keepalive: true }).catch(() => {});
+        fetch(url, { keepalive: true }).catch(() => {});
+    }
 }
 
 function sendRemoteHotkey(combo) {

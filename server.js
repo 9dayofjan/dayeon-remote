@@ -776,7 +776,7 @@ const server = http.createServer((req, res) => {
                 if (pcSessions[pcId].wsClients && pcSessions[pcId].wsClients.length > 0) {
                     const wsFrame = makeWsFrame(frameBuf);
                     for (const wsClient of pcSessions[pcId].wsClients) {
-                        if (wsClient.monitor === currentMonKey || !wsClient.monitor || wsClient.monitor === '0') {
+                        if (!wsClient.monitor || wsClient.monitor === currentMonKey) {
                             if (wsClient.socket && !wsClient.socket.destroyed && wsClient.socket.writable) {
                                 if (wsClient.socket.writableLength && wsClient.socket.writableLength > 512 * 1024) {
                                     continue; // 브라우저 수신 지연 시 프레임 드랍
@@ -790,7 +790,7 @@ const server = http.createServer((req, res) => {
                 // 2. 표준 MJPEG 클라이언트 스트림 전송
                 if (pcSessions[pcId].streamClients && pcSessions[pcId].streamClients.length > 0) {
                     for (const client of pcSessions[pcId].streamClients) {
-                        if (client.monitor === currentMonKey || !client.monitor || client.monitor === '0') {
+                        if (!client.monitor || client.monitor === currentMonKey) {
                             if (!client.res.writableEnded && !client.res.destroyed) {
                                 if (client.res.writableLength && client.res.writableLength > 150 * 1024) {
                                     continue;
@@ -1176,7 +1176,9 @@ server.on('upgrade', (req, socket, head) => {
                 if (!pcSessions[targetPcId].wsClients) pcSessions[targetPcId].wsClients = [];
                 pcSessions[targetPcId].wsClients.push(wsClient);
 
-                // 연결 즉시 대상 에이전트를 30 FPS Turbo FHD 모드로 승격
+                // 대상 에이전트의 모니터 선택 및 30 FPS Turbo 모드 즉시 전송
+                activeViewedMonitor[targetPcId] = monitorIdx.toString();
+                dispatchControlCommand(targetPcId, { type: 'select_monitor', monitor: monitorIdx.toString() });
                 dispatchControlCommand(targetPcId, { type: 'focus_change', isFocused: true });
 
                 // 연결 즉시 직전 유효 프레임 전송하여 0초 만에 화면 표출
