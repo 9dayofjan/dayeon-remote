@@ -310,6 +310,7 @@ console.log('==================================================\n');
     }
 
     const lanStreamClients = [];
+    let activeStreamMonitor = null;
 
     // ⚡ 사내 초고속 직통 LAN 서버 (0.1ms 무지연 캡처 및 즉각 제어)
     try {
@@ -321,13 +322,13 @@ console.log('==================================================\n');
             // 🌟 1. 사내 기가비트 연속 MJPEG 실시간 스트림 (단 1회 연결로 60 FPS 무한 무지연 푸시)
             if (lUrl.pathname === '/api/stream') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
-                if (fastcapMonitor !== mon) {
-                    fastcapMonitor = mon;
-                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                    }
-                    latestCapturedFrame = null;
+                activeStreamMonitor = mon;
+                fastcapMonitor = mon;
+                targetMonitor = mon;
+                if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                    try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
                 }
+                latestCapturedFrame = null;
 
                 lRes.writeHead(200, {
                     'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
@@ -335,19 +336,22 @@ console.log('==================================================\n');
                     'Connection': 'close'
                 });
 
-                const clientObj = { res: lRes };
+                const clientObj = { res: lRes, mon: mon };
                 lanStreamClients.push(clientObj);
                 lReq.on('close', () => {
                     const idx = lanStreamClients.indexOf(clientObj);
                     if (idx !== -1) lanStreamClients.splice(idx, 1);
+                    if (lanStreamClients.length === 0) activeStreamMonitor = null;
                 });
                 return;
             }
 
             if (lUrl.pathname === '/api/snapshot') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
-                if (fastcapMonitor !== mon) {
+                // 🌟 현재 줌 스트리밍 중인 모니터가 있으면 다른 스냅샷 요청이 모니터를 강제로 가로채지 못하도록 보호!
+                if (activeStreamMonitor === null && fastcapMonitor !== mon) {
                     fastcapMonitor = mon;
+                    targetMonitor = mon;
                     if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
                         try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
                     }
@@ -931,7 +935,7 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
+                    if (activeStreamMonitor === null && data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
                         const rMon = data.requestedMonitor.toString();
                         if (fastcapMonitor !== rMon) {
                             fastcapMonitor = rMon;
@@ -990,7 +994,7 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
+                    if (activeStreamMonitor === null && data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
                         const newMon = data.requestedMonitor.toString();
                         if (fastcapMonitor !== newMon) {
                             fastcapMonitor = newMon;
