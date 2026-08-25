@@ -239,7 +239,7 @@ console.log('==================================================\n');
         if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
             try {
                 if (isCurrentZoomFocused) {
-                    fastcapDaemon.stdin.write('fps 30\nquality 75\n');
+                    fastcapDaemon.stdin.write('fps 30\nquality 90\n');
                 } else {
                     fastcapDaemon.stdin.write('fps 3\nquality 60\n');
                 }
@@ -257,7 +257,7 @@ console.log('==================================================\n');
 
                     // 초기 상태 적용 (포커스 여부에 따른 지능형 대역폭 제어)
                     if (isCurrentZoomFocused) {
-                        try { fastcapDaemon.stdin.write('fps 30\nquality 75\n'); } catch(e) {}
+                        try { fastcapDaemon.stdin.write('fps 30\nquality 90\n'); } catch(e) {}
                     } else {
                         try { fastcapDaemon.stdin.write('fps 3\nquality 60\n'); } catch(e) {}
                     }
