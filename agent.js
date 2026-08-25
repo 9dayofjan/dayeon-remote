@@ -814,11 +814,11 @@ console.log('==================================================\n');
         }, (res) => {
             if (res.socket) res.socket.setNoDelay(true);
             let body = '';
-            res.on('data', chunk => body += chunk);
-            res.on('end', () => {
-                isPollingCmds = false;
+            res.on('data', chunk => {
+                body += chunk;
                 try {
                     const data = JSON.parse(body);
+                    body = '';
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
@@ -836,6 +836,9 @@ console.log('==================================================\n');
                         processCommands(data.commands);
                     }
                 } catch(e) {}
+            });
+            res.on('end', () => {
+                isPollingCmds = false;
                 setImmediate(fastControlLoop);
             });
         });
