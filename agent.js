@@ -455,10 +455,11 @@ console.log('==================================================\n');
                         const monitorIdx = parts[3] || '0';
                         const key = parts[4] || '';
                         const delta = parts[5] || '-120';
+                        const msg = parts[6] || key || '';
                         if (type === 'select_monitor' || type === 'monitor') {
                             setFastcapMonitor(monitorIdx, true);
                         }
-                        executeControlNative(type, relX, relY, key, monitorIdx, '', delta);
+                        executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
                     }
                 }
             });
