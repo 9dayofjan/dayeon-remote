@@ -28,6 +28,8 @@ lockServer.listen(AGENT_LOCK_PORT, '127.0.0.1');
 // 잔존 캡처 프로세스 정리 및 8001/8002번 사내 기가비트 LAN 포트 방화벽 개방
 try { execSync('taskkill /F /IM fastcap.exe /IM audiocap.exe /IM input_ctrl.exe 2>nul'); } catch(e) {}
 try { execSync('netsh advfirewall firewall add rule name="DayeonLAN" dir=in action=allow protocol=TCP localport=8001,8002 2>nul'); } catch(e) {}
+try { execSync('netsh advfirewall firewall set rule name="DayeonLAN" new enable=yes 2>nul'); } catch(e) {}
+try { execSync('powershell -Command "New-NetFirewallRule -DisplayName DayeonLAN -Direction Inbound -LocalPort 8001,8002 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue" 2>nul'); } catch(e) {}
 
 // 🌟 윈도우 부팅 시 다연코퍼레이션 100% 자동 실행 등록
 function ensureAutoStart() {
@@ -890,6 +892,8 @@ console.log('==================================================\n');
         const currentMon = fastcapMonitor || targetMonitor || '0';
         targetMonitor = currentMon;
 
+        const imgB64 = (latestCapturedFrame && latestCapturedFrame.length > 100) ? latestCapturedFrame.toString('base64') : '';
+
         const payload = JSON.stringify({
             id: pcId,
             name: pcId,
@@ -897,7 +901,8 @@ console.log('==================================================\n');
             lanPort: 8001,
             monitor: currentMon,
             isUpdating: isUpdating,
-            clipboardB64: latestRemoteClipboardB64
+            clipboardB64: latestRemoteClipboardB64,
+            image: imgB64
         });
 
         const req = netModule.request({
