@@ -265,7 +265,7 @@ console.log('==================================================\n');
         isCurrentZoomFocused = focused;
         if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
             try {
-                fastcapDaemon.stdin.write('fps 60\nquality 95\n');
+                fastcapDaemon.stdin.write('fps 60\nquality 88\n');
             } catch(e) {}
         }
     }
@@ -278,8 +278,8 @@ console.log('==================================================\n');
                     fastcapDaemon = spawn(fastcapPath, ['daemon', targetMonitor || '0'], { stdio: ['pipe', 'pipe', 'ignore'] });
                     fastcapMonitor = targetMonitor || '0';
 
-                    // 60 FPS 초고속 캡처 항시 가동 (95% 초고화질)
-                    try { fastcapDaemon.stdin.write('fps 60\nquality 95\n'); } catch(e) {}
+                    // 60 FPS 초고속 캡처 항시 가동 (88% 초고화질 무지연)
+                    try { fastcapDaemon.stdin.write('fps 60\nquality 88\n'); } catch(e) {}
 
                     fastcapDaemon.stdout.on('data', (chunk) => {
                         if (streamUploadReq && !streamUploadReq.destroyed && !streamUploadReq.writableEnded) {
