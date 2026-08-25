@@ -1,7 +1,7 @@
 {
-  "version": 365,
-  "updatedAt": 1787644500000,
-  "updatedDate": "2026-08-25 16:55:00",
+  "version": 370,
+  "updatedAt": 1787645000000,
+  "updatedDate": "2026-08-25 17:00:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",

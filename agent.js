@@ -270,6 +270,37 @@ console.log('==================================================\n');
         return Buffer.concat([header, buffer]);
     }
 
+    let globalAgentWsSocket = null;
+
+    function makeWsClientBinaryFrame(buffer) {
+        const len = buffer.length;
+        const mask = crypto.randomBytes(4);
+        let header;
+        if (len < 126) {
+            header = Buffer.alloc(6);
+            header[0] = 0x82;
+            header[1] = 0x80 | len;
+            mask.copy(header, 2);
+        } else if (len <= 0xFFFF) {
+            header = Buffer.alloc(8);
+            header[0] = 0x82;
+            header[1] = 0x80 | 126;
+            header.writeUInt16BE(len, 2);
+            mask.copy(header, 4);
+        } else {
+            header = Buffer.alloc(14);
+            header[0] = 0x82;
+            header[1] = 0x80 | 127;
+            header.writeBigUInt64BE(BigInt(len), 2);
+            mask.copy(header, 10);
+        }
+        const maskedPayload = Buffer.allocUnsafe(len);
+        for (let i = 0; i < len; i++) {
+            maskedPayload[i] = buffer[i] ^ mask[i % 4];
+        }
+        return Buffer.concat([header, maskedPayload]);
+    }
+
     try {
         lanServer = http.createServer((req, res) => {
             const urlObj = new URL(req.url, `http://localhost:${LAN_PORT}`);
@@ -427,6 +458,7 @@ console.log('==================================================\n');
                             daemonBuf = daemonBuf.slice(12 + len);
                             latestCapturedFrame = jpegBuf;
 
+                            // 1. 사내 LAN 클라이언트 0ms 브로드캐스트
                             if (lanWsClients.length > 0) {
                                 const wsFrame = makeWsBinaryFrame(jpegBuf);
                                 for (const c of lanWsClients) {
@@ -434,6 +466,13 @@ console.log('==================================================\n');
                                         if (c.socket.writableLength && c.socket.writableLength > 64 * 1024) continue;
                                         try { c.socket.write(wsFrame); } catch(e) {}
                                     }
+                                }
+                            }
+
+                            // 2. 클라우드 관리자 WebSocket 실시간 바이너리 직통 전송 (60 FPS)
+                            if (globalAgentWsSocket && !globalAgentWsSocket.destroyed && globalAgentWsSocket.writable) {
+                                if (!globalAgentWsSocket.writableLength || globalAgentWsSocket.writableLength < 64 * 1024) {
+                                    try { globalAgentWsSocket.write(makeWsClientBinaryFrame(jpegBuf)); } catch(e) {}
                                 }
                             }
                         }
@@ -1079,6 +1118,7 @@ console.log('==================================================\n');
             });
             wsReq.on('upgrade', (res, socket, head) => {
                 socket.setNoDelay(true);
+                globalAgentWsSocket = socket;
                 console.log('⚡ [다연코퍼레이션] 초고속 0ms WebSocket 실시간 제어 채널 연결 완료!');
 
                 socket.on('data', (chunk) => {
@@ -1105,9 +1145,11 @@ console.log('==================================================\n');
                 });
 
                 socket.on('close', () => {
+                    if (globalAgentWsSocket === socket) globalAgentWsSocket = null;
                     setTimeout(connectAgentWs, 1500);
                 });
                 socket.on('error', () => {
+                    if (globalAgentWsSocket === socket) globalAgentWsSocket = null;
                     socket.destroy();
                 });
             });

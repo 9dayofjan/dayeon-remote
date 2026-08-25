@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 365, updatedDate: '2026-08-25 16:55:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 370, updatedDate: '2026-08-25 17:00:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -1231,6 +1231,49 @@ server.on('upgrade', (req, socket, head) => {
                 pcSessions[rawPcId] = { id: rawPcId, name: rawPcId, lastSeen: Date.now() };
             }
             pcSessions[rawPcId].agentWs = socket;
+
+            let agentBuf = Buffer.alloc(0);
+            socket.on('data', (chunk) => {
+                if (chunk.length === 0) return;
+                const op = chunk[0] & 0x0F;
+                if (op === 0x08) { socket.end(); return; }
+                if (op === 0x09) { try { socket.write(Buffer.from([0x8A, 0x00])); } catch(e) {} return; }
+
+                // WebSocket 바이너리 프레임(0x02) 처리
+                if (op === 0x02) {
+                    try {
+                        const isMasked = (chunk[1] & 0x80) !== 0;
+                        let payloadLen = chunk[1] & 0x7F;
+                        let offset = 2;
+                        if (payloadLen === 126) { payloadLen = chunk.readUInt16BE(2); offset = 4; }
+                        else if (payloadLen === 127) { payloadLen = Number(chunk.readBigUInt64BE(2)); offset = 10; }
+
+                        let payload;
+                        if (isMasked) {
+                            const mask = chunk.slice(offset, offset + 4);
+                            offset += 4;
+                            payload = Buffer.alloc(payloadLen);
+                            for (let i = 0; i < payloadLen; i++) {
+                                payload[i] = chunk[offset + i] ^ mask[i % 4];
+                            }
+                        } else {
+                            payload = chunk.slice(offset, offset + payloadLen);
+                        }
+
+                        if (payload.length > 100) {
+                            pcSessions[rawPcId].lastGoodBuffer = payload;
+                            if (pcSessions[rawPcId].wsClients && pcSessions[rawPcId].wsClients.length > 0) {
+                                const wsFrame = makeWsFrame(payload);
+                                for (const wsClient of pcSessions[rawPcId].wsClients) {
+                                    if (wsClient.socket && !wsClient.socket.destroyed && wsClient.socket.writable) {
+                                        try { wsClient.socket.write(wsFrame); } catch(e) {}
+                                    }
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+            });
 
             socket.on('close', () => {
                 if (pcSessions[rawPcId] && pcSessions[rawPcId].agentWs === socket) {
