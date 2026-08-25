@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 370, updatedDate: '2026-08-25 17:00:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 375, updatedDate: '2026-08-25 17:05:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -621,9 +621,17 @@ const server = http.createServer((req, res) => {
         }
 
         if (targetPcId && pcSessions[targetPcId]) {
-            activeViewedMonitor[targetPcId] = monitorIdx.toString();
+            const mKey = monitorIdx.toString();
+            if (activeViewedMonitor[targetPcId] !== mKey) {
+                activeViewedMonitor[targetPcId] = mKey;
+                dispatchControlCommand(targetPcId, { type: 'select_monitor', monitor: mKey });
+            }
             const p = pcSessions[targetPcId];
-            let buf = (p.rawBuffers && p.rawBuffers[monitorIdx]) || p.lastGoodBuffer;
+            let buf = (p.rawBuffers && p.rawBuffers[mKey]) || (p.activeMonitor === mKey ? p.lastGoodBuffer : null);
+            if (!buf && p.lastGoodBuffer && (!p.rawBuffers || Object.keys(p.rawBuffers).length <= 1)) {
+                buf = p.lastGoodBuffer; // 단일 모니터 PC 호환성
+            }
+
             if (buf) {
                 res.writeHead(200, {
                     'Content-Type': 'image/jpeg',

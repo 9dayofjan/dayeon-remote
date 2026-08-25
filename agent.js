@@ -301,15 +301,26 @@ console.log('==================================================\n');
         return Buffer.concat([header, maskedPayload]);
     }
 
+    const latestMonitorFrames = {};
+
     try {
         lanServer = http.createServer((req, res) => {
             const urlObj = new URL(req.url, `http://localhost:${LAN_PORT}`);
             const pathname = urlObj.pathname;
 
             if (pathname === '/api/snapshot') {
-                if (latestCapturedFrame) {
+                const reqMon = urlObj.searchParams.get('monitor') || targetMonitor || '0';
+                if (reqMon !== fastcapMonitor) {
+                    targetMonitor = reqMon;
+                    fastcapMonitor = reqMon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                }
+                const frame = latestMonitorFrames[reqMon] || latestCapturedFrame;
+                if (frame) {
                     res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
-                    res.end(latestCapturedFrame);
+                    res.end(frame);
                 } else {
                     res.writeHead(404); res.end();
                 }
@@ -447,6 +458,7 @@ console.log('==================================================\n');
                             if (magicIdx > 0) daemonBuf = daemonBuf.slice(magicIdx);
                             if (daemonBuf.length < 12) break;
 
+                            const monIdx = daemonBuf.readUInt32LE(4);
                             const len = daemonBuf.readUInt32LE(8);
                             if (len <= 0 || len > 10 * 1024 * 1024) {
                                 daemonBuf = daemonBuf.slice(4);
@@ -457,6 +469,8 @@ console.log('==================================================\n');
                             const jpegBuf = daemonBuf.slice(12, 12 + len);
                             daemonBuf = daemonBuf.slice(12 + len);
                             latestCapturedFrame = jpegBuf;
+                            latestMonitorFrames[monIdx.toString()] = jpegBuf;
+                            fastcapMonitor = monIdx.toString();
 
                             // 1. 사내 LAN 클라이언트 0ms 브로드캐스트
                             if (lanWsClients.length > 0) {
