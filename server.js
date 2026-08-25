@@ -255,7 +255,7 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update/file') {
         const fileName = path.basename(urlObj.searchParams.get('name') || '');
-        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json'];
+        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'];
         if (!allowedFiles.includes(fileName)) {
             res.writeHead(403);
             res.end('Forbidden');
@@ -348,7 +348,60 @@ const server = http.createServer((req, res) => {
         }
     }
 
-    // 0-3. 📁 파일 업로드 및 원격 PC 바탕화면 배포 API
+    // 0-4. 🌉 사내 관리자 서버 <-> 클라우드 서버 실시간 브릿지 동기화 엔드포인트
+    if (pathname === '/api/bridge/sync' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if (data.pcs && Array.isArray(data.pcs)) {
+                    for (const rpc of data.pcs) {
+                        if (!pcSessions[rpc.id]) {
+                            pcSessions[rpc.id] = { id: rpc.id, name: rpc.name, ip: rpc.ip, rawBuffers: {} };
+                        }
+                        pcSessions[rpc.id].lastSeen = Date.now();
+                        pcSessions[rpc.id].name = rpc.name;
+                        pcSessions[rpc.id].nickname = rpc.nickname;
+                        pcSessions[rpc.id].isUpdating = rpc.isUpdating;
+                        pcSessions[rpc.id].isBlindMode = rpc.isBlindMode;
+                        pcSessions[rpc.id].activeMonitor = rpc.activeMonitor;
+                        if (rpc.image) {
+                            const buf = Buffer.from(rpc.image, 'base64');
+                            pcSessions[rpc.id].lastGoodBuffer = buf;
+                            if (!pcSessions[rpc.id].rawBuffers) pcSessions[rpc.id].rawBuffers = {};
+                            pcSessions[rpc.id].rawBuffers[rpc.activeMonitor || '0'] = buf;
+                            if (pcSessions[rpc.id].wsClients && pcSessions[rpc.id].wsClients.length > 0) {
+                                for (const ws of pcSessions[rpc.id].wsClients) {
+                                    try { ws.socket.write(makeWsFrame(buf)); } catch(e) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 클라우드에서 접수된 제어 명령들을 사내 서버로 회신
+                let cloudCmds = [];
+                for (const id in pendingCommands) {
+                    if (pendingCommands[id] && pendingCommands[id].length > 0) {
+                        for (const c of pendingCommands[id]) {
+                            c.pc = id;
+                            cloudCmds.push(c);
+                        }
+                        pendingCommands[id] = [];
+                    }
+                }
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ok', commands: cloudCmds }));
+            } catch(e) {
+                res.writeHead(400); res.end('Invalid JSON');
+            }
+        });
+        return;
+    }
+
+    // 0-5. 📁 파일 업로드 및 원격 PC 바탕화면 배포 API
     if (pathname === '/api/upload_file' && req.method === 'POST') {
         const rawFileName = req.headers['x-file-name'] || urlObj.searchParams.get('name') || 'uploaded_file';
         let fileName = 'uploaded_file';
@@ -810,6 +863,17 @@ const server = http.createServer((req, res) => {
                     pcSessions[pcId].rawBuffers[monKey] = buf;
                     pcSessions[pcId].lastGoodBuffer = buf;
 
+                    if (pcSessions[pcId].wsClients && pcSessions[pcId].wsClients.length > 0) {
+                        const wsFrame = makeWsFrame(buf);
+                        for (const wsClient of pcSessions[pcId].wsClients) {
+                            if (wsClient.monitor === monKey || !wsClient.monitor || wsClient.monitor === '0') {
+                                if (wsClient.socket && !wsClient.socket.destroyed && wsClient.socket.writable) {
+                                    try { wsClient.socket.write(wsFrame); } catch(e) {}
+                                }
+                            }
+                        }
+                    }
+
                     if (pcSessions[pcId].streamClients && pcSessions[pcId].streamClients.length > 0) {
                         for (const client of pcSessions[pcId].streamClients) {
                             if (client.monitor === monKey || !client.monitor || client.monitor === '0') {
@@ -1220,3 +1284,77 @@ function startCloudflaredTunnel() {
         });
     } catch(e) {}
 }
+
+const CLOUD_RELAY_URL = 'https://dayeon-remote.onrender.com';
+const httpsModule = require('https');
+let isCloudSyncing = false;
+
+function syncToCloudRelay() {
+    // 클라우드 자체(Render)에서 돌고 있는 경우 로컬 동기화 스킵
+    if (process.env.RENDER || isCloudSyncing || !CLOUD_RELAY_URL) return;
+    isCloudSyncing = true;
+
+    const activePcList = [];
+    const now = Date.now();
+    for (const id in pcSessions) {
+        const p = pcSessions[id];
+        if (now - p.lastSeen < 10000) {
+            activePcList.push({
+                id: p.id,
+                name: p.name,
+                nickname: p.nickname || '',
+                ip: p.ip,
+                lastSeen: p.lastSeen,
+                isUpdating: p.isUpdating,
+                isBlindMode: p.isBlindMode,
+                clipboardB64: p.clipboardB64 || '',
+                activeMonitor: p.activeMonitor || '0',
+                image: p.lastGoodBuffer ? p.lastGoodBuffer.toString('base64') : ''
+            });
+        }
+    }
+
+    if (activePcList.length === 0) {
+        isCloudSyncing = false;
+        return;
+    }
+
+    const payload = JSON.stringify({ pcs: activePcList });
+    try {
+        const u = new URL(CLOUD_RELAY_URL);
+        const req = httpsModule.request({
+            hostname: u.hostname,
+            port: 443,
+            path: '/api/bridge/sync',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            },
+            timeout: 4000
+        }, (res) => {
+            let body = '';
+            res.on('data', c => body += c);
+            res.on('end', () => {
+                isCloudSyncing = false;
+                try {
+                    const data = JSON.parse(body);
+                    if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+                        for (const cmd of data.commands) {
+                            dispatchControlCommand(cmd.pc, cmd);
+                        }
+                    }
+                } catch(e) {}
+            });
+        });
+
+        req.on('error', () => { isCloudSyncing = false; });
+        req.on('timeout', () => { req.destroy(); isCloudSyncing = false; });
+        req.write(payload);
+        req.end();
+    } catch(e) {
+        isCloudSyncing = false;
+    }
+}
+
+setInterval(syncToCloudRelay, 1000);

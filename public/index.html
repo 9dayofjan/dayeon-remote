@@ -2009,13 +2009,25 @@ function openZoomModal(pcId) {
     const activeMonBtn = document.getElementById('monBtn' + selectedMonitorIdx);
     if (activeMonBtn) activeMonBtn.classList.add('active');
 
-    // 1. 듀얼 레이어 초기화 및 WebSocket 60fps 실시간 스트림 연결
+    // 1. 듀얼 레이어 및 캔버스 초기화 (썸네일 즉시 프리로드로 검은 화면 0초 완전 차단)
     currentActiveLayer = 'A';
     const imgA = document.getElementById('zoomStreamImgA');
     const imgB = document.getElementById('zoomStreamImgB');
-    imgA.className = 'zoom-layer active-layer';
-    imgB.className = 'zoom-layer inactive-layer';
-    imgB.src = '';
+    const canvas = document.getElementById('zoomStreamCanvas');
+    if (imgA) { imgA.className = 'zoom-layer active-layer'; imgA.style.display = 'none'; }
+    if (imgB) { imgB.className = 'zoom-layer inactive-layer'; imgB.src = ''; imgB.style.display = 'none'; }
+    if (canvas) {
+        canvas.style.display = 'block';
+        const gridImg = document.getElementById('grid-img-' + pcId);
+        if (gridImg && gridImg.naturalWidth > 0) {
+            canvas.width = gridImg.naturalWidth;
+            canvas.height = gridImg.naturalHeight;
+            try {
+                const cCtx = canvas.getContext('2d');
+                if (cCtx) cCtx.drawImage(gridImg, 0, 0);
+            } catch(e) {}
+        }
+    }
 
     // WebSocket 60fps 실시간 스트림 연결 (단일 고속 파이프라인)
     startWsStream(pcId, selectedMonitorIdx);
