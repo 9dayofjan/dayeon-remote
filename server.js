@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 590, updatedDate: '2026-08-25 21:30:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 600, updatedDate: '2026-08-25 22:00:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));

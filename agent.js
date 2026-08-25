@@ -301,6 +301,14 @@ console.log('==================================================\n');
 
             if (lUrl.pathname === '/api/snapshot') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
+                if (fastcapMonitor !== mon) {
+                    fastcapMonitor = mon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                    latestCapturedFrame = null;
+                }
+
                 if (latestCapturedFrame && latestCapturedFrame.length > 100) {
                     lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': latestCapturedFrame.length });
                     lRes.end(latestCapturedFrame);
@@ -328,6 +336,14 @@ console.log('==================================================\n');
                 const msg = lUrl.searchParams.get('msg') || key || '';
                 const delta = lUrl.searchParams.get('delta') || '-120';
                 
+                if (type === 'select_monitor' || type === 'monitor') {
+                    fastcapMonitor = monitorIdx.toString();
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                    latestCapturedFrame = null;
+                }
+
                 executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
                 lRes.writeHead(200, { 'Content-Type': 'application/json' });
                 lRes.end(JSON.stringify({ status: 'ok' }));
