@@ -298,20 +298,6 @@
     </style>
 </head>
 <body>
-    <!-- 🔐 관리자/대표님 전용 마스터 로그인 오버레이 -->
-    <div id="authOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,15,30,0.92);backdrop-filter:blur(8px);z-index:999999;justify-content:center;align-items:center;">
-        <div style="background:#1e293b;border:1px solid #3b82f6;box-shadow:0 10px 25px rgba(0,0,0,0.6);border-radius:16px;padding:30px;width:90%;max-width:380px;text-align:center;color:#fff;">
-            <div style="font-size:2.2rem;margin-bottom:10px;">🏢</div>
-            <h2 style="margin:0 0 8px 0;font-size:1.25rem;font-weight:bold;color:#f8fafc;">다연코퍼레이션 원격 관제</h2>
-            <p style="margin:0 0 20px 0;font-size:0.85rem;color:#94a3b8;">관리자 / 대표님 비밀번호를 입력해 주세요.</p>
-            <form onsubmit="event.preventDefault(); submitAuth();">
-                <input type="password" id="authPassInput" placeholder="비밀번호 입력 (기본: 1234)" style="width:100%;padding:12px;box-sizing:border-box;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;font-size:1rem;text-align:center;letter-spacing:2px;outline:none;margin-bottom:12px;" autofocus>
-                <div id="authError" style="color:#ef4444;font-size:0.8rem;min-height:18px;margin-bottom:12px;"></div>
-                <button type="submit" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:bold;cursor:pointer;transition:background 0.2s;">로그인</button>
-            </form>
-        </div>
-    </div>
-
     <header>
         <div class="logo"><span>다연코퍼레이션</span></div>
         <div class="stats-bar">
@@ -320,8 +306,6 @@
             <button class="header-msg-btn" onclick="openMsgModal('all')">💬 전체 공지</button>
             <button class="header-msg-btn" style="background:#065f46;border:1px solid #10b981;color:#a7f3d0;font-weight:bold;" onclick="triggerAutoUpdateAll()">🚀 전체 PC 업데이트</button>
             <span id="versionBadge" style="font-size:0.75rem;color:#38bdf8;font-weight:bold;background:#0f172a;border:1px solid #0284c7;padding:3px 8px;border-radius:12px;white-space:nowrap;">UPDATE (2026-08-25 13:36:29)</span>
-            <button id="tunnelLinkBtn" style="display:inline-block;background:linear-gradient(135deg, #4f46e5, #7c3aed);border:1px solid #c084fc;color:#ffffff;font-size:0.78rem;padding:4px 12px;border-radius:14px;font-weight:bold;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(124,58,237,0.3);transition:all 0.2s;" onclick="copyTunnelUrl()" title="대표님/외부 접속 링크 복사">🌐 📋 대표님 접속링크 복사</button>
-            <button style="background:#334155;border:1px solid #64748b;color:#e2e8f0;font-size:0.75rem;padding:4px 8px;border-radius:12px;font-weight:bold;cursor:pointer;white-space:nowrap;" onclick="openPasswordChangeModal()" title="관리자 비밀번호 변경">🔑 암호설정</button>
         </div>
         <div class="grid-selector">
             <button class="grid-btn active" id="gridBtn20" onclick="setGrid(20)">전체 PC 보기</button>
@@ -1442,82 +1426,9 @@ function copyTunnelUrl() {
     }
 }
 
-function checkAuth() {
-    const auth = sessionStorage.getItem('dayeon_auth') || localStorage.getItem('dayeon_auth');
-    const authOverlay = document.getElementById('authOverlay');
-    if (!authOverlay) return;
-    if (auth === 'ok') {
-        authOverlay.style.display = 'none';
-    } else {
-        authOverlay.style.display = 'flex';
-        setTimeout(() => {
-            const input = document.getElementById('authPassInput');
-            if (input) input.focus();
-        }, 150);
-    }
-}
-
-async function submitAuth() {
-    const input = document.getElementById('authPassInput');
-    const errDiv = document.getElementById('authError');
-    if (!input) return;
-    const pass = input.value.trim();
-    if (!pass) {
-        if (errDiv) errDiv.innerText = '비밀번호를 입력해 주세요.';
-        return;
-    }
-    try {
-        const res = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pass })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-            localStorage.setItem('dayeon_auth', 'ok');
-            sessionStorage.setItem('dayeon_auth', 'ok');
-            const authOverlay = document.getElementById('authOverlay');
-            if (authOverlay) authOverlay.style.display = 'none';
-            showToast('🔑 관리자 인증 완료!');
-        } else {
-            if (errDiv) errDiv.innerText = data.message || '비밀번호가 일치하지 않습니다.';
-            input.value = '';
-            input.focus();
-        }
-    } catch(e) {
-        if (errDiv) errDiv.innerText = '인증 서버 오류가 발생했습니다.';
-    }
-}
-
-async function openPasswordChangeModal() {
-    const oldPass = prompt('현재 관리자 비밀번호를 입력하세요:');
-    if (!oldPass) return;
-    const newPass = prompt('새로운 관리자 비밀번호를 입력하세요 (4자리 이상 권장):');
-    if (!newPass || !newPass.trim()) return;
-    const confirmPass = prompt('새로운 비밀번호를 한 번 더 입력하세요:');
-    if (newPass !== confirmPass) {
-        alert('새 비밀번호가 일치하지 않습니다.');
-        return;
-    }
-    try {
-        const res = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'change', oldPass: oldPass.trim(), newPass: newPass.trim() })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-            alert('✅ 비밀번호가 성공적으로 변경되었습니다!');
-        } else {
-            alert('❌ ' + (data.message || '비밀번호 변경 실패'));
-        }
-    } catch(e) {
-        alert('❌ 서버 통신 오류');
-    }
-}
-
-window.addEventListener('DOMContentLoaded', checkAuth);
-setTimeout(checkAuth, 100);
+function checkAuth() {}
+function submitAuth() {}
+function openPasswordChangeModal() {}
 
 let currentGridMode = 20;
 
