@@ -329,6 +329,29 @@ console.log('==================================================\n');
     const lanStreamClients = [];
     let activeStreamMonitor = null;
 
+    function setFastcapMonitor(mon, isExplicitUserSwitch) {
+        if (mon === undefined || mon === null) return;
+        const targetMon = mon.toString();
+        
+        if (isExplicitUserSwitch) {
+            activeStreamMonitor = targetMon;
+        }
+
+        // 스트리밍 중일 때 외부의 비명시적(스냅샷, 하트비트) 모니터 전환 요청은 완벽 차단!
+        if (!isExplicitUserSwitch && activeStreamMonitor !== null) {
+            return;
+        }
+
+        if (fastcapMonitor !== targetMon) {
+            fastcapMonitor = targetMon;
+            targetMonitor = targetMon;
+            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+            }
+            latestCapturedFrame = null;
+        }
+    }
+
     // ⚡ 사내 초고속 직통 LAN 서버 (0.1ms 무지연 캡처 및 즉각 제어)
     try {
         const lanServer = http.createServer((lReq, lRes) => {
@@ -339,13 +362,7 @@ console.log('==================================================\n');
             // 🌟 1. 사내 기가비트 연속 MJPEG 실시간 스트림 (단 1회 연결로 60 FPS 무한 무지연 푸시)
             if (lUrl.pathname === '/api/stream') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
-                activeStreamMonitor = mon;
-                fastcapMonitor = mon;
-                targetMonitor = mon;
-                if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                    try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                }
-                latestCapturedFrame = null;
+                setFastcapMonitor(mon, true);
 
                 lRes.writeHead(200, {
                     'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
@@ -365,15 +382,7 @@ console.log('==================================================\n');
 
             if (lUrl.pathname === '/api/snapshot') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
-                // 🌟 현재 줌 스트리밍 중인 모니터가 있으면 다른 스냅샷 요청이 모니터를 강제로 가로채지 못하도록 보호!
-                if (activeStreamMonitor === null && fastcapMonitor !== mon) {
-                    fastcapMonitor = mon;
-                    targetMonitor = mon;
-                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                    }
-                    latestCapturedFrame = null;
-                }
+                setFastcapMonitor(mon, false);
 
                 if (latestCapturedFrame && latestCapturedFrame.length > 100) {
                     lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': latestCapturedFrame.length });
@@ -403,11 +412,7 @@ console.log('==================================================\n');
                 const delta = lUrl.searchParams.get('delta') || '-120';
                 
                 if (type === 'select_monitor' || type === 'monitor') {
-                    fastcapMonitor = monitorIdx.toString();
-                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                    }
-                    latestCapturedFrame = null;
+                    setFastcapMonitor(monitorIdx, true);
                 }
 
                 executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
@@ -445,11 +450,7 @@ console.log('==================================================\n');
                         const key = parts[4] || '';
                         const delta = parts[5] || '-120';
                         if (type === 'select_monitor' || type === 'monitor') {
-                            fastcapMonitor = monitorIdx.toString();
-                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                            }
-                            latestCapturedFrame = null;
+                            setFastcapMonitor(monitorIdx, true);
                         }
                         executeControlNative(type, relX, relY, key, monitorIdx, '', delta);
                     }
@@ -464,15 +465,10 @@ console.log('==================================================\n');
 
     function captureScreen(monitorIdx, callback) {
         ensureFastcapDaemon();
-        if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-            if (fastcapMonitor !== monitorIdx.toString()) {
-                fastcapMonitor = monitorIdx.toString();
-                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-            }
-            if (latestCapturedFrame) {
-                callback(latestCapturedFrame);
-                return;
-            }
+        setFastcapMonitor(monitorIdx, false);
+        if (latestCapturedFrame) {
+            callback(latestCapturedFrame);
+            return;
         }
 
         const mKey = (monitorIdx !== undefined && monitorIdx !== null) ? monitorIdx.toString() : '0';
@@ -719,11 +715,7 @@ console.log('==================================================\n');
 
         if (type === 'select_monitor' || type === 'monitor') {
             const targetM = (monitorIdx !== undefined && monitorIdx !== null ? monitorIdx : (relX !== undefined ? relX : (key || msg || '0'))).toString();
-            targetMonitor = targetM;
-            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                fastcapMonitor = targetM;
-                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-            }
+            setFastcapMonitor(targetM, true);
             return;
         }
 
@@ -952,16 +944,8 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (activeStreamMonitor === null && data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
-                        const rMon = data.requestedMonitor.toString();
-                        if (fastcapMonitor !== rMon) {
-                            fastcapMonitor = rMon;
-                            targetMonitor = rMon;
-                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                            }
-                            latestCapturedFrame = null;
-                        }
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
+                        setFastcapMonitor(data.requestedMonitor, false);
                     }
                     if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
                         processCommands(data.commands);
@@ -1011,15 +995,8 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (activeStreamMonitor === null && data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
-                        const newMon = data.requestedMonitor.toString();
-                        if (fastcapMonitor !== newMon) {
-                            fastcapMonitor = newMon;
-                            targetMonitor = newMon;
-                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-                            }
-                        }
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
+                        setFastcapMonitor(data.requestedMonitor, false);
                     }
                     if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
                         processCommands(data.commands);
