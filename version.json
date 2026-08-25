@@ -1,7 +1,7 @@
 {
-  "version": 341,
-  "updatedAt": 1787634350000,
-  "updatedDate": "2026-08-25 14:05:50",
+  "version": 342,
+  "updatedAt": 1787634540000,
+  "updatedDate": "2026-08-25 14:09:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",
@@ -12,5 +12,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 고해상도 안티에일리어싱 및 초저지연 최적화 (2026-08-25 14:05:50)"
+  "description": "다연코퍼레이션 1:1 물리적 픽셀 정렬 및 초저지연 최적화 (2026-08-25 14:09:00)"
 }
