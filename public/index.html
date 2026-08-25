@@ -1438,18 +1438,16 @@ async function copyTunnelUrl() {
         }
     } catch(e) {}
 
-    if (window.currentTunnelUrl) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(window.currentTunnelUrl).then(() => {
-                showToast('📋 최신 실시간 외부 접속 링크가 복사되었습니다:\n' + window.currentTunnelUrl);
-            }).catch(() => {
-                prompt('최신 외부 접속 링크를 복사하세요:', window.currentTunnelUrl);
-            });
-        } else {
-            prompt('최신 외부 접속 링크를 복사하세요:', window.currentTunnelUrl);
-        }
+function copyTunnelUrl() {
+    const permanentUrl = 'https://dayeon-remote.onrender.com/';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(permanentUrl).then(() => {
+            showToast('📋 대표님 영구 접속 링크가 복사되었습니다:\n' + permanentUrl);
+        }).catch(() => {
+            prompt('대표님 영구 접속 링크를 복사하세요:', permanentUrl);
+        });
     } else {
-        showToast('⏳ 외부 접속 터널 발급 중입니다. 3초 후 다시 클릭해 주세요.');
+        prompt('대표님 영구 접속 링크를 복사하세요:', permanentUrl);
     }
 }
 
