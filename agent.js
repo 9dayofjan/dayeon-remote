@@ -25,9 +25,9 @@ lockServer.once('error', (err) => {
 });
 lockServer.listen(AGENT_LOCK_PORT, '127.0.0.1');
 
-// 잔존 캡처 프로세스 정리 및 8001번 사내 기가비트 LAN 포트 방화벽 개방
+// 잔존 캡처 프로세스 정리 및 8001/8002번 사내 기가비트 LAN 포트 방화벽 개방
 try { execSync('taskkill /F /IM fastcap.exe /IM audiocap.exe /IM input_ctrl.exe 2>nul'); } catch(e) {}
-try { execSync('netsh advfirewall firewall add rule name="DayeonLAN" dir=in action=allow protocol=TCP localport=8001 2>nul'); } catch(e) {}
+try { execSync('netsh advfirewall firewall add rule name="DayeonLAN" dir=in action=allow protocol=TCP localport=8001,8002 2>nul'); } catch(e) {}
 
 // 🌟 윈도우 부팅 시 다연코퍼레이션 100% 자동 실행 등록
 function ensureAutoStart() {
