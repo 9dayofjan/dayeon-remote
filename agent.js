@@ -537,6 +537,21 @@ console.log('==================================================\n');
             return;
         }
 
+        if (type === 'select_monitor' || type === 'monitor') {
+            const targetM = (monitorIdx !== undefined && monitorIdx !== null ? monitorIdx : (relX !== undefined ? relX : (key || msg || '0'))).toString();
+            targetMonitor = targetM;
+            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                fastcapMonitor = targetM;
+                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+            }
+            return;
+        }
+
+        if (type === 'close_update_widget') {
+            try { execSync('taskkill /F /FI "WINDOWTITLE eq *시스템 실시간 업데이트*" >nul 2>&1'); } catch(e) {}
+            return;
+        }
+
         if (type === 'focus_change') {
             applyStreamFocusState(!!(key === 'true' || key === true || msg === 'true' || delta === 1 || relX === 1 || relX === 'true'));
             return;

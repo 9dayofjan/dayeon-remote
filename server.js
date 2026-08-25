@@ -961,19 +961,21 @@ const server = http.createServer((req, res) => {
         }
 
         function pushDirectly(targetId) {
-            if (cmdObj.type === 'monitor' && cmdObj.monitorIdx !== undefined) {
-                activeViewedMonitor[targetId] = cmdObj.monitorIdx.toString();
-            }
-            if (!pendingCommands[targetId]) pendingCommands[targetId] = [];
-
-            if (cmdObj.type === 'move' || cmdObj.type === 'mousemove') {
+            if (cmdObj.type === 'monitor' || cmdObj.type === 'select_monitor') {
+                const m = (cmdObj.monitor !== undefined ? cmdObj.monitor : (cmdObj.monitorIdx !== undefined ? cmdObj.monitorIdx : (cmdObj.relX !== undefined ? cmdObj.relX : '0'))).toString();
+                activeViewedMonitor[targetId] = m;
+                if (!pendingCommands[targetId]) pendingCommands[targetId] = [];
+                pendingCommands[targetId].push(cmdObj);
+            } else if (cmdObj.type === 'move' || cmdObj.type === 'mousemove') {
+                if (!pendingCommands[targetId]) pendingCommands[targetId] = [];
                 const lastIdx = pendingCommands[targetId].length - 1;
                 if (lastIdx >= 0 && (pendingCommands[targetId][lastIdx].type === 'move' || pendingCommands[targetId][lastIdx].type === 'mousemove')) {
                     pendingCommands[targetId][lastIdx] = cmdObj;
                 } else {
                     pendingCommands[targetId].push(cmdObj);
                 }
-            } else if (cmdObj.type !== 'monitor') {
+            } else {
+                if (!pendingCommands[targetId]) pendingCommands[targetId] = [];
                 pendingCommands[targetId].push(cmdObj);
             }
             if (pendingCommands[targetId].length > 50) pendingCommands[targetId].shift();
