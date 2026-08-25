@@ -887,13 +887,8 @@ console.log('==================================================\n');
         isReporting = true;
 
         ensureFastcapDaemon();
-        const currentMon = targetMonitor;
-        if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-            if (fastcapMonitor !== currentMon) {
-                fastcapMonitor = currentMon;
-                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-            }
-        }
+        const currentMon = fastcapMonitor || targetMonitor || '0';
+        targetMonitor = currentMon;
 
         const payload = JSON.stringify({
             id: pcId,
@@ -931,8 +926,16 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
-                        targetMonitor = data.requestedMonitor.toString();
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
+                        const rMon = data.requestedMonitor.toString();
+                        if (fastcapMonitor !== rMon) {
+                            fastcapMonitor = rMon;
+                            targetMonitor = rMon;
+                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                            }
+                            latestCapturedFrame = null;
+                        }
                     }
                     if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
                         processCommands(data.commands);
@@ -950,7 +953,10 @@ console.log('==================================================\n');
             }
         });
 
-        req.on('timeout', () => { req.destroy(); isReporting = false; });
+        req.on('timeout', () => {
+            req.destroy();
+            isReporting = false;
+        });
 
         req.write(payload);
         req.end();
@@ -979,12 +985,12 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
                         const newMon = data.requestedMonitor.toString();
-                        if (targetMonitor !== newMon) {
+                        if (fastcapMonitor !== newMon) {
+                            fastcapMonitor = newMon;
                             targetMonitor = newMon;
                             if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                                fastcapMonitor = targetMonitor;
                                 try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
                             }
                         }
