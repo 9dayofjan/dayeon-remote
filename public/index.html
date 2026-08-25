@@ -1429,15 +1429,6 @@ let lastSyncedRemoteClipB64 = '';
 let lastLocalCopyTimestamp = 0;
 let lastRemoteCopyTimestamp = 0;
 
-async function copyTunnelUrl() {
-    try {
-        const res = await fetch('/api/tunnel_url?t=' + Date.now());
-        const data = await res.json();
-        if (data && data.url) {
-            window.currentTunnelUrl = data.url;
-        }
-    } catch(e) {}
-
 function copyTunnelUrl() {
     const permanentUrl = 'https://dayeon-remote.onrender.com/';
     if (navigator.clipboard && navigator.clipboard.writeText) {
