@@ -1017,6 +1017,23 @@ const server = http.createServer((req, res) => {
             }
             if (pendingCommands[targetId].length > 50) pendingCommands[targetId].shift();
 
+            // 1. ⚡ 에이전트 상시 WebSocket 직통 푸시 (0.001ms 지연)
+            for (const k of Object.keys(pcSessions)) {
+                if (k.toLowerCase() === targetId.toLowerCase() || (pcSessions[k] && pcSessions[k].name && pcSessions[k].name.toLowerCase() === targetId.toLowerCase())) {
+                    const sess = pcSessions[k];
+                    if (sess && sess.agentWs && !sess.agentWs.destroyed) {
+                        try {
+                            const mon = activeViewedMonitor[k] || '0';
+                            const cmds = pendingCommands[targetId] || [];
+                            pendingCommands[targetId] = [];
+                            sess.agentWs.write(makeWsTextFrame(JSON.stringify({ commands: cmds.length > 0 ? cmds : [cmdObj], requestedMonitor: mon })));
+                            return;
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            // 2. 일반 롱폴링 소켓 푸시 폴백
             for (const k of Object.keys(activeCommandSockets)) {
                 if (k.toLowerCase() === targetId.toLowerCase() || (pcSessions[k] && pcSessions[k].name && pcSessions[k].name.toLowerCase() === targetId.toLowerCase())) {
                     const heldRes = activeCommandSockets[k];
@@ -1162,10 +1179,66 @@ const server = http.createServer((req, res) => {
     });
 });
 
+function makeWsTextFrame(text) {
+    const payload = Buffer.from(text, 'utf8');
+    const len = payload.length;
+    let header;
+    if (len < 126) {
+        header = Buffer.from([0x81, len]);
+    } else if (len <= 0xFFFF) {
+        header = Buffer.alloc(4);
+        header[0] = 0x81;
+        header[1] = 126;
+        header.writeUInt16BE(len, 2);
+    } else {
+        header = Buffer.alloc(10);
+        header[0] = 0x81;
+        header[1] = 127;
+        header.writeBigUInt64BE(BigInt(len), 2);
+    }
+    return Buffer.concat([header, payload]);
+}
+
 // 6. 초고속 WebSocket 바이너리 스트리밍 & 양방향 무지연 제어 핸들러 (0ms 지연)
 server.on('upgrade', (req, socket, head) => {
     try {
         const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+        if (urlObj.pathname === '/ws/agent') {
+            const rawPcId = urlObj.searchParams.get('id');
+            const key = req.headers['sec-websocket-key'];
+            if (!key || !rawPcId) {
+                socket.destroy();
+                return;
+            }
+
+            const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+            const responseHeaders = [
+                'HTTP/1.1 101 Switching Protocols',
+                'Upgrade: websocket',
+                'Connection: Upgrade',
+                `Sec-WebSocket-Accept: ${accept}`,
+                '\r\n'
+            ].join('\r\n');
+
+            socket.setNoDelay(true);
+            socket.write(responseHeaders);
+
+            if (!pcSessions[rawPcId]) {
+                pcSessions[rawPcId] = { id: rawPcId, name: rawPcId, lastSeen: Date.now() };
+            }
+            pcSessions[rawPcId].agentWs = socket;
+
+            socket.on('close', () => {
+                if (pcSessions[rawPcId] && pcSessions[rawPcId].agentWs === socket) {
+                    delete pcSessions[rawPcId].agentWs;
+                }
+            });
+            socket.on('error', () => {
+                socket.destroy();
+            });
+            return;
+        }
+
         if (urlObj.pathname === '/ws/stream') {
             const rawTargetPc = urlObj.searchParams.get('pc');
             const monitorIdx = urlObj.searchParams.get('monitor') || '0';
