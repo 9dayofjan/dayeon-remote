@@ -79,9 +79,11 @@ if (fs.existsSync(updateFlagFile)) {
 const baseHostname = process.env.COMPUTERNAME || os.hostname() || 'PC';
 const interfaces = os.networkInterfaces();
 let localIpSuffix = '';
+let localFullIp = '127.0.0.1';
 for (const k in interfaces) {
     for (const iface of interfaces[k]) {
         if (iface.family === 'IPv4' && !iface.internal) {
+            localFullIp = iface.address;
             const segs = iface.address.split('.');
             localIpSuffix = segs[segs.length - 1];
             break;
@@ -143,7 +145,7 @@ console.log('==================================================\n');
     let latestRemoteClipboardB64 = '';
 
     function ensureInputCtrlDaemon() {
-        if (!inputCtrlProcess || inputCtrlProcess.killed) {
+        if (!inputCtrlProcess || inputCtrlProcess.killed || inputCtrlProcess.exitCode !== null || !inputCtrlProcess.stdin || inputCtrlProcess.stdin.destroyed) {
             const inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
             if (fs.existsSync(inputCtrlPath)) {
                 try {
@@ -231,17 +233,135 @@ console.log('==================================================\n');
     }
     connectStreamUpload();
 
-    let isCurrentZoomFocused = false;
+    const LAN_PORT = 8001;
+    const lanWsClients = [];
+    let lanServer = null;
+
+    function makeWsBinaryFrame(buffer) {
+        const len = buffer.length;
+        let header;
+        if (len < 126) {
+            header = Buffer.from([0x82, len]);
+        } else if (len <= 0xFFFF) {
+            header = Buffer.alloc(4);
+            header[0] = 0x82;
+            header[1] = 126;
+            header.writeUInt16BE(len, 2);
+        } else {
+            header = Buffer.alloc(10);
+            header[0] = 0x82;
+            header[1] = 127;
+            header.writeBigUInt64BE(BigInt(len), 2);
+        }
+        return Buffer.concat([header, buffer]);
+    }
+
+    try {
+        lanServer = http.createServer((req, res) => {
+            const urlObj = new URL(req.url, `http://localhost:${LAN_PORT}`);
+            const pathname = urlObj.pathname;
+
+            if (pathname === '/api/snapshot') {
+                if (latestCapturedFrame) {
+                    res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
+                    res.end(latestCapturedFrame);
+                } else {
+                    res.writeHead(404); res.end();
+                }
+                return;
+            }
+
+            if (pathname === '/api/control') {
+                const type = urlObj.searchParams.get('type');
+                const relX = urlObj.searchParams.get('relX');
+                const relY = urlObj.searchParams.get('relY');
+                const monitor = urlObj.searchParams.get('monitor');
+                const key = urlObj.searchParams.get('key');
+                const msg = urlObj.searchParams.get('msg');
+                const delta = urlObj.searchParams.get('delta');
+
+                executeControlNative({ type, relX, relY, monitorIdx: monitor, key, msg, delta });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ok' }));
+                return;
+            }
+
+            res.writeHead(404); res.end();
+        });
+
+        lanServer.on('upgrade', (req, socket, head) => {
+            const key = req.headers['sec-websocket-key'];
+            if (!key) { socket.destroy(); return; }
+
+            const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+            const responseHeaders = [
+                'HTTP/1.1 101 Switching Protocols',
+                'Upgrade: websocket',
+                'Connection: Upgrade',
+                `Sec-WebSocket-Accept: ${accept}`,
+                '\r\n'
+            ].join('\r\n');
+
+            socket.setNoDelay(true);
+            socket.write(responseHeaders);
+
+            const client = { socket };
+            lanWsClients.push(client);
+
+            applyStreamFocusState(true);
+
+            if (latestCapturedFrame) {
+                try { socket.write(makeWsBinaryFrame(latestCapturedFrame)); } catch(e) {}
+            }
+
+            socket.on('data', (data) => {
+                if (data.length > 0) {
+                    const op = data[0] & 0x0F;
+                    if (op === 0x08) { socket.end(); return; }
+                    if (op === 0x01) {
+                        try {
+                            const text = decodeWsTextSimple(data);
+                            if (text) {
+                                const cmd = JSON.parse(text);
+                                if (cmd.type === 'select_monitor' && cmd.monitor !== undefined) {
+                                    targetMonitor = cmd.monitor.toString();
+                                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                        fastcapMonitor = targetMonitor;
+                                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                                    }
+                                } else {
+                                    executeControlNative(cmd);
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+
+            socket.on('close', () => {
+                const idx = lanWsClients.indexOf(client);
+                if (idx !== -1) lanWsClients.splice(idx, 1);
+                if (lanWsClients.length === 0) applyStreamFocusState(false);
+            });
+
+            socket.on('error', () => { socket.destroy(); });
+        });
+
+        lanServer.listen(LAN_PORT, '0.0.0.0', () => {
+            console.log(`⚡ [LAN 직통] 사내 기가비트 0ms 고속 스트리밍 서버 가동 (Port: ${LAN_PORT})`);
+        });
+        lanServer.on('error', () => {});
+    } catch(e) {}
 
     function applyStreamFocusState(focused) {
-        if (isCurrentZoomFocused === focused) return;
-        isCurrentZoomFocused = focused;
+        if (isCurrentZoomFocused === focused && lanWsClients.length === 0) return;
+        isCurrentZoomFocused = focused || (lanWsClients.length > 0);
         if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
             try {
                 if (isCurrentZoomFocused) {
-                    fastcapDaemon.stdin.write('fps 30\nquality 90\n');
+                    fastcapDaemon.stdin.write('fps 60\nquality 70\n');
                 } else {
-                    fastcapDaemon.stdin.write('fps 3\nquality 60\n');
+                    fastcapDaemon.stdin.write('fps 4\nquality 55\n');
                 }
             } catch(e) {}
         }
@@ -255,13 +375,12 @@ console.log('==================================================\n');
                     fastcapDaemon = spawn(fastcapPath, ['daemon', targetMonitor || '0'], { stdio: ['pipe', 'pipe', 'ignore'] });
                     fastcapMonitor = targetMonitor || '0';
 
-                    // 초기 상태 적용 (포커스 여부에 따른 지능형 대역폭 제어)
+                    // 초기 상태 적용
                     if (isCurrentZoomFocused) {
-                        try { fastcapDaemon.stdin.write('fps 30\nquality 90\n'); } catch(e) {}
-                    } else {
-                        try { fastcapDaemon.stdin.write('fps 3\nquality 60\n'); } catch(e) {}
+                        try { fastcapDaemon.stdin.write('fps 30\nquality 75\n'); } catch(e) {}
                     }
 
+                    let daemonBuf = Buffer.alloc(0);
                     fastcapDaemon.stdout.on('data', (chunk) => {
                         if (streamUploadReq && !streamUploadReq.destroyed && !streamUploadReq.writableEnded) {
                             try {
@@ -269,6 +388,38 @@ console.log('==================================================\n');
                             } catch(e) {
                                 streamUploadReq = null;
                                 scheduleStreamReconnect();
+                            }
+                        }
+
+                        // LAN 직통 클라이언트에게 0ms 로컬 브로드캐스트
+                        if (lanWsClients.length > 0) {
+                            daemonBuf = Buffer.concat([daemonBuf, chunk]);
+                            while (daemonBuf.length >= 12) {
+                                const magicIdx = daemonBuf.indexOf(Buffer.from([0x53, 0x43, 0x41, 0x50]));
+                                if (magicIdx === -1) {
+                                    if (daemonBuf.length > 3) daemonBuf = daemonBuf.slice(daemonBuf.length - 3);
+                                    break;
+                                }
+                                if (magicIdx > 0) daemonBuf = daemonBuf.slice(magicIdx);
+                                if (daemonBuf.length < 12) break;
+
+                                const len = daemonBuf.readUInt32LE(8);
+                                if (len <= 0 || len > 10 * 1024 * 1024) {
+                                    daemonBuf = daemonBuf.slice(4);
+                                    continue;
+                                }
+                                if (daemonBuf.length < 12 + len) break;
+
+                                const jpegBuf = daemonBuf.slice(12, 12 + len);
+                                daemonBuf = daemonBuf.slice(12 + len);
+                                latestCapturedFrame = jpegBuf;
+
+                                const wsFrame = makeWsBinaryFrame(jpegBuf);
+                                for (const c of lanWsClients) {
+                                    if (c.socket && !c.socket.destroyed && c.socket.writable) {
+                                        try { c.socket.write(wsFrame); } catch(e) {}
+                                    }
+                                }
                             }
                         }
                     });
@@ -532,6 +683,17 @@ console.log('==================================================\n');
     }
 
     function executeControlNative(type, relX, relY, key, monitorIdx, msg, delta) {
+        if (typeof type === 'object' && type !== null) {
+            const obj = type;
+            type = obj.type;
+            relX = obj.relX;
+            relY = obj.relY;
+            key = obj.key;
+            monitorIdx = obj.monitorIdx || obj.monitor;
+            msg = obj.msg;
+            delta = obj.delta;
+        }
+
         if (type === 'exit' || type === 'kill_agent') {
             try { if (inputCtrlProcess) inputCtrlProcess.kill(); } catch(e) {}
             try { if (fastcapDaemon) fastcapDaemon.kill(); } catch(e) {}
@@ -539,23 +701,19 @@ console.log('==================================================\n');
             return;
         }
 
-        if (type === 'select_monitor' || type === 'monitor') {
-            const targetM = (monitorIdx !== undefined && monitorIdx !== null ? monitorIdx : (relX !== undefined ? relX : (key || msg || '0'))).toString();
-            targetMonitor = targetM;
+        if (type === 'select_monitor' || type === 'switch_monitor') {
+            const newMon = (monitorIdx !== undefined && monitorIdx !== null) ? monitorIdx.toString() : (key || msg || relX || '0').toString();
+            targetMonitor = newMon;
             if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                fastcapMonitor = targetM;
+                fastcapMonitor = targetMonitor;
                 try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
             }
             return;
         }
 
-        if (type === 'close_update_widget') {
-            try { execSync('taskkill /F /FI "WINDOWTITLE eq *시스템 실시간 업데이트*" >nul 2>&1'); } catch(e) {}
-            return;
-        }
-
         if (type === 'focus_change') {
-            applyStreamFocusState(!!(key === 'true' || key === true || msg === 'true' || delta === 1 || relX === 1 || relX === 'true'));
+            const isFoc = !!(key === 'true' || key === true || msg === 'true' || delta === 1 || relX === 1 || relX === 'true');
+            applyStreamFocusState(isFoc);
             return;
         }
 
@@ -745,7 +903,9 @@ console.log('==================================================\n');
             name: pcId,
             monitor: currentMon,
             isUpdating: isUpdating,
-            clipboardB64: latestRemoteClipboardB64
+            clipboardB64: latestRemoteClipboardB64,
+            lanIp: localFullIp,
+            lanPort: LAN_PORT
         });
 
         const req = netModule.request({
@@ -814,11 +974,11 @@ console.log('==================================================\n');
         }, (res) => {
             if (res.socket) res.socket.setNoDelay(true);
             let body = '';
-            res.on('data', chunk => {
-                body += chunk;
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                isPollingCmds = false;
                 try {
                     const data = JSON.parse(body);
-                    body = '';
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
@@ -836,9 +996,6 @@ console.log('==================================================\n');
                         processCommands(data.commands);
                     }
                 } catch(e) {}
-            });
-            res.on('end', () => {
-                isPollingCmds = false;
                 setImmediate(fastControlLoop);
             });
         });
@@ -854,6 +1011,92 @@ console.log('==================================================\n');
         });
         req.end();
     }
+
+    function decodeWsTextSimple(buffer) {
+        if (buffer.length < 2) return null;
+        const isMasked = (buffer[1] & 0x80) !== 0;
+        let payloadLen = buffer[1] & 0x7F;
+        let maskOffset = 2;
+        if (payloadLen === 126) {
+            if (buffer.length < 4) return null;
+            payloadLen = buffer.readUInt16BE(2);
+            maskOffset = 4;
+        } else if (payloadLen === 127) {
+            if (buffer.length < 10) return null;
+            payloadLen = Number(buffer.readBigUInt64BE(2));
+            maskOffset = 10;
+        }
+        let dataOffset = maskOffset + (isMasked ? 4 : 0);
+        if (buffer.length < dataOffset + payloadLen) return null;
+        let out = Buffer.allocUnsafe(payloadLen);
+        if (isMasked) {
+            const mask = buffer.slice(maskOffset, maskOffset + 4);
+            for (let i = 0; i < payloadLen; i++) {
+                out[i] = buffer[dataOffset + i] ^ mask[i % 4];
+            }
+        } else {
+            buffer.copy(out, 0, dataOffset, dataOffset + payloadLen);
+        }
+        return out.toString('utf8');
+    }
+
+    // 🌟 2-2. 0ms 실시간 WebSocket 직통 제어 채널
+    function connectAgentWs() {
+        try {
+            const wsReq = (isHttps ? https : http).request({
+                hostname: targetHost,
+                port: targetPort,
+                path: `/ws/agent?id=${encodeURIComponent(pcId)}`,
+                headers: {
+                    'Connection': 'Upgrade',
+                    'Upgrade': 'websocket',
+                    'Sec-WebSocket-Version': '13',
+                    'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64')
+                }
+            });
+            wsReq.on('upgrade', (res, socket, head) => {
+                socket.setNoDelay(true);
+                console.log('⚡ [다연코퍼레이션] 초고속 0ms WebSocket 실시간 제어 채널 연결 완료!');
+
+                socket.on('data', (chunk) => {
+                    try {
+                        const text = decodeWsTextSimple(chunk);
+                        if (text) {
+                            const data = JSON.parse(text);
+                            if (data.isFocused !== undefined) applyStreamFocusState(!!data.isFocused);
+                            if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
+                                const newMon = data.requestedMonitor.toString();
+                                if (targetMonitor !== newMon) {
+                                    targetMonitor = newMon;
+                                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                        fastcapMonitor = targetMonitor;
+                                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                                    }
+                                }
+                            }
+                            if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+                                processCommands(data.commands);
+                            }
+                        }
+                    } catch(e) {}
+                });
+
+                socket.on('close', () => {
+                    setTimeout(connectAgentWs, 1500);
+                });
+                socket.on('error', () => {
+                    socket.destroy();
+                });
+            });
+            wsReq.on('error', () => {
+                setTimeout(connectAgentWs, 2000);
+            });
+            wsReq.end();
+        } catch(e) {
+            setTimeout(connectAgentWs, 2000);
+        }
+    }
+    connectAgentWs();
 
     // 3. 실시간 오디오 루프백 캡처 및 전송 루프
     let audioProc = null;
