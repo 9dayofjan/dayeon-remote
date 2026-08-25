@@ -111,20 +111,20 @@ let ipConfigFile = path.join(__dirname, 'server_ip.txt');
 if (!fs.existsSync(ipConfigFile) && fs.existsSync(path.join(__dirname, '..', 'server_ip.txt'))) {
     ipConfigFile = path.join(__dirname, '..', 'server_ip.txt');
 }
-let savedIp = '172.30.1.90';
+let savedIp = 'https://dayeon-remote.onrender.com';
 if (fs.existsSync(ipConfigFile)) {
     try {
         const content = fs.readFileSync(ipConfigFile, 'utf8').trim();
-        if (content) savedIp = content;
+        if (content && content.includes('dayeon-remote')) savedIp = content;
     } catch(e) {}
 } else {
     try { fs.writeFileSync(ipConfigFile, savedIp, 'utf8'); } catch(e) {}
 }
 
 let input = savedIp;
-let isHttps = false;
-let targetHost = '172.30.1.90';
-let targetPort = 8080;
+let isHttps = true;
+let targetHost = 'dayeon-remote.onrender.com';
+let targetPort = 443;
 
 if (input.startsWith('https://')) {
     isHttps = true;
