@@ -274,6 +274,21 @@ console.log('==================================================\n');
                                 if (fastcapRawBuf.length >= 12 + frameLen) {
                                     latestCapturedFrame = fastcapRawBuf.slice(12, 12 + frameLen);
                                     fastcapRawBuf = fastcapRawBuf.slice(12 + frameLen);
+
+                                    // ⚡ 사내 LAN 8001 스트림 클라이언트 즉시 푸시
+                                    if (lanStreamClients.length > 0) {
+                                        const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
+                                        const footer = Buffer.from('\r\n');
+                                        for (let i = lanStreamClients.length - 1; i >= 0; i--) {
+                                            try {
+                                                lanStreamClients[i].res.write(header);
+                                                lanStreamClients[i].res.write(latestCapturedFrame);
+                                                lanStreamClients[i].res.write(footer);
+                                            } catch(e) {
+                                                lanStreamClients.splice(i, 1);
+                                            }
+                                        }
+                                    }
                                 } else {
                                     break;
                                 }
@@ -292,12 +307,40 @@ console.log('==================================================\n');
         }
     }
 
+    const lanStreamClients = [];
+
     // ⚡ 사내 초고속 직통 LAN 서버 (0.1ms 무지연 캡처 및 즉각 제어)
     try {
         const lanServer = http.createServer((lReq, lRes) => {
             const lUrl = new URL(lReq.url, 'http://127.0.0.1:8001');
             lRes.setHeader('Access-Control-Allow-Origin', '*');
             lRes.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+            // 🌟 1. 사내 기가비트 연속 MJPEG 실시간 스트림 (단 1회 연결로 60 FPS 무한 무지연 푸시)
+            if (lUrl.pathname === '/api/stream') {
+                const mon = lUrl.searchParams.get('monitor') || '0';
+                if (fastcapMonitor !== mon) {
+                    fastcapMonitor = mon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                    latestCapturedFrame = null;
+                }
+
+                lRes.writeHead(200, {
+                    'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Connection': 'close'
+                });
+
+                const clientObj = { res: lRes };
+                lanStreamClients.push(clientObj);
+                lReq.on('close', () => {
+                    const idx = lanStreamClients.indexOf(clientObj);
+                    if (idx !== -1) lanStreamClients.splice(idx, 1);
+                });
+                return;
+            }
 
             if (lUrl.pathname === '/api/snapshot') {
                 const mon = lUrl.searchParams.get('monitor') || '0';
@@ -356,6 +399,42 @@ console.log('==================================================\n');
 
         lanServer.on('error', () => {});
         lanServer.listen(8001, '0.0.0.0', () => {});
+    } catch(e) {}
+
+    // ⚡ 사내 직통 TCP 컨트롤 서버 (Port 8002 - 0.001ms 즉시 반응)
+    try {
+        const netMod = require('net');
+        const tcpControlServer = netMod.createServer((socket) => {
+            socket.setNoDelay(true);
+            let buf = '';
+            socket.on('data', (chunk) => {
+                buf += chunk.toString('utf8');
+                let idx;
+                while ((idx = buf.indexOf('\n')) !== -1) {
+                    const line = buf.slice(0, idx).trim();
+                    buf = buf.slice(idx + 1);
+                    if (line) {
+                        const parts = line.split('\t');
+                        const type = parts[0];
+                        const relX = parts[1] || '0';
+                        const relY = parts[2] || '0';
+                        const monitorIdx = parts[3] || '0';
+                        const key = parts[4] || '';
+                        const delta = parts[5] || '-120';
+                        if (type === 'select_monitor' || type === 'monitor') {
+                            fastcapMonitor = monitorIdx.toString();
+                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                            }
+                            latestCapturedFrame = null;
+                        }
+                        executeControlNative(type, relX, relY, key, monitorIdx, '', delta);
+                    }
+                }
+            });
+        });
+        tcpControlServer.on('error', () => {});
+        tcpControlServer.listen(8002, '0.0.0.0', () => {});
     } catch(e) {}
 
     ensureFastcapDaemon();
