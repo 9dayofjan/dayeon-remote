@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 380, updatedDate: '2026-08-25 17:10:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 385, updatedDate: '2026-08-25 17:15:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -1242,44 +1242,66 @@ server.on('upgrade', (req, socket, head) => {
 
             let agentBuf = Buffer.alloc(0);
             socket.on('data', (chunk) => {
-                if (chunk.length === 0) return;
-                const op = chunk[0] & 0x0F;
-                if (op === 0x08) { socket.end(); return; }
-                if (op === 0x09) { try { socket.write(Buffer.from([0x8A, 0x00])); } catch(e) {} return; }
+                agentBuf = Buffer.concat([agentBuf, chunk]);
 
-                // WebSocket 바이너리 프레임(0x02) 처리
-                if (op === 0x02) {
-                    try {
-                        const isMasked = (chunk[1] & 0x80) !== 0;
-                        let payloadLen = chunk[1] & 0x7F;
-                        let offset = 2;
-                        if (payloadLen === 126) { payloadLen = chunk.readUInt16BE(2); offset = 4; }
-                        else if (payloadLen === 127) { payloadLen = Number(chunk.readBigUInt64BE(2)); offset = 10; }
+                while (agentBuf.length >= 2) {
+                    const op = agentBuf[0] & 0x0F;
+                    if (op === 0x08) { socket.end(); return; }
+                    if (op === 0x09) {
+                        try { socket.write(Buffer.from([0x8A, 0x00])); } catch(e) {}
+                        agentBuf = agentBuf.slice(2);
+                        continue;
+                    }
 
+                    const isMasked = (agentBuf[1] & 0x80) !== 0;
+                    let payloadLen = agentBuf[1] & 0x7F;
+                    let headerLen = 2;
+
+                    if (payloadLen === 126) {
+                        if (agentBuf.length < 4) break;
+                        payloadLen = agentBuf.readUInt16BE(2);
+                        headerLen = 4;
+                    } else if (payloadLen === 127) {
+                        if (agentBuf.length < 10) break;
+                        payloadLen = Number(agentBuf.readBigUInt64BE(2));
+                        headerLen = 10;
+                    }
+                    if (isMasked) headerLen += 4;
+
+                    if (agentBuf.length < headerLen + payloadLen) {
+                        break; // 더 많은 TCP 패킷 수신 대기
+                    }
+
+                    const frameData = agentBuf.slice(0, headerLen + payloadLen);
+                    agentBuf = agentBuf.slice(headerLen + payloadLen);
+
+                    if (op === 0x02) { // Binary Frame (SCAP / JPEG)
                         let payload;
+                        let offset = headerLen - (isMasked ? 4 : 0);
                         if (isMasked) {
-                            const mask = chunk.slice(offset, offset + 4);
+                            const mask = frameData.slice(offset, offset + 4);
                             offset += 4;
-                            payload = Buffer.alloc(payloadLen);
+                            payload = Buffer.allocUnsafe(payloadLen);
                             for (let i = 0; i < payloadLen; i++) {
-                                payload[i] = chunk[offset + i] ^ mask[i % 4];
+                                payload[i] = frameData[offset + i] ^ mask[i % 4];
                             }
                         } else {
-                            payload = chunk.slice(offset, offset + payloadLen);
+                            payload = frameData.slice(offset, offset + payloadLen);
                         }
 
                         if (payload.length > 100) {
                             pcSessions[rawPcId].lastGoodBuffer = payload;
                             if (pcSessions[rawPcId].wsClients && pcSessions[rawPcId].wsClients.length > 0) {
-                                const wsFrame = makeWsFrame(payload);
+                                const wsOutFrame = makeWsFrame(payload);
                                 for (const wsClient of pcSessions[rawPcId].wsClients) {
                                     if (wsClient.socket && !wsClient.socket.destroyed && wsClient.socket.writable) {
-                                        try { wsClient.socket.write(wsFrame); } catch(e) {}
+                                        if (wsClient.socket.writableLength && wsClient.socket.writableLength > 64 * 1024) continue;
+                                        try { wsClient.socket.write(wsOutFrame); } catch(e) {}
                                     }
                                 }
                             }
                         }
-                    } catch(e) {}
+                    }
                 }
             });
 
