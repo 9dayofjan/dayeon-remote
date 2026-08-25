@@ -1,6 +1,5 @@
 {
   "version": 350,
-  "managerVersion": 350,
   "updatedAt": 1787636700000,
   "updatedDate": "2026-08-25 14:45:00",
   "files": [
@@ -10,9 +9,8 @@
     "audiocap.exe",
     "NAudio.dll",
     "다연코퍼레이션.exe",
-    "다연코퍼레이션 관리자.exe",
     "version.json",
     "server_ip.txt"
   ],
-  "description": "관리자 EXE 자체 핫패치 자동 업데이트 및 60 FPS 비동기 파이프라인 탑재"
+  "description": "다연코퍼레이션 원격 PC 클라이언트 패키지"
 }

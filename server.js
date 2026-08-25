@@ -238,10 +238,10 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // 0. 버전 조회 및 원격 자동 업데이트 배포 API
+    // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 340, updatedDate: '2026-08-25 13:50:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 350, updatedDate: '2026-08-25 14:45:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -250,6 +250,21 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(verData));
+        return;
+    }
+
+    // 0-2. 관리자 PC(관리자 프로그램) 전용 독립 버전 조회 API
+    if (pathname === '/api/version/manager') {
+        const mgrVerFile = path.join(__dirname, 'manager_version.json');
+        let mgrVerData = { managerVersion: 351, updatedAt: Date.now(), file: '다연코퍼레이션 관리자.exe' };
+        if (fs.existsSync(mgrVerFile)) {
+            try {
+                const d = JSON.parse(fs.readFileSync(mgrVerFile, 'utf8'));
+                mgrVerData = Object.assign(mgrVerData, d);
+            } catch(e) {}
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(mgrVerData));
         return;
     }
 
