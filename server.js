@@ -255,7 +255,7 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update/file') {
         const fileName = path.basename(urlObj.searchParams.get('name') || '');
-        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'];
+        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
         if (!allowedFiles.includes(fileName)) {
             res.writeHead(403);
             res.end('Forbidden');
@@ -263,12 +263,34 @@ const server = http.createServer((req, res) => {
         }
         const filePath = path.join(__dirname, fileName);
         if (fs.existsSync(filePath)) {
-            res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+            res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-cache' });
             fs.createReadStream(filePath).pipe(res);
         } else {
             res.writeHead(404);
             res.end('Not found');
         }
+        return;
+    }
+
+    if (pathname === '/api/update/upload_binary' && req.method === 'POST') {
+        const fileName = path.basename(urlObj.searchParams.get('name') || '');
+        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
+        if (!allowedFiles.includes(fileName)) {
+            res.writeHead(403);
+            res.end('Forbidden');
+            return;
+        }
+        const targetPath = path.join(__dirname, fileName);
+        const ws = fs.createWriteStream(targetPath);
+        req.pipe(ws);
+        ws.on('finish', () => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ok', file: fileName }));
+        });
+        ws.on('error', (err) => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'error', message: err.message }));
+        });
         return;
     }
 

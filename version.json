@@ -1,7 +1,8 @@
 {
-  "version": 349,
-  "updatedAt": 1787635800000,
-  "updatedDate": "2026-08-25 14:30:00",
+  "version": 350,
+  "managerVersion": 350,
+  "updatedAt": 1787636700000,
+  "updatedDate": "2026-08-25 14:45:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",
@@ -9,8 +10,9 @@
     "audiocap.exe",
     "NAudio.dll",
     "다연코퍼레이션.exe",
+    "다연코퍼레이션 관리자.exe",
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 드로잉 및 클릭 물리 1:1 완벽 정렬 (2026-08-25 14:30:00)"
+  "description": "관리자 EXE 자체 핫패치 자동 업데이트 및 60 FPS 비동기 파이프라인 탑재"
 }
