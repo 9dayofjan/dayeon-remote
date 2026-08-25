@@ -237,15 +237,10 @@ console.log('==================================================\n');
     let isCurrentZoomFocused = false;
 
     function applyStreamFocusState(focused) {
-        if (isCurrentZoomFocused === focused) return;
         isCurrentZoomFocused = focused;
         if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
             try {
-                if (isCurrentZoomFocused) {
-                    fastcapDaemon.stdin.write('fps 60\nquality 90\n');
-                } else {
-                    fastcapDaemon.stdin.write('fps 3\nquality 60\n');
-                }
+                fastcapDaemon.stdin.write('fps 60\nquality 80\n');
             } catch(e) {}
         }
     }
@@ -258,12 +253,8 @@ console.log('==================================================\n');
                     fastcapDaemon = spawn(fastcapPath, ['daemon', targetMonitor || '0'], { stdio: ['pipe', 'pipe', 'ignore'] });
                     fastcapMonitor = targetMonitor || '0';
 
-                    // 초기 상태 적용 (포커스 여부에 따른 지능형 대역폭 제어: 줌 시 60 FPS, 대기 시 3 FPS)
-                    if (isCurrentZoomFocused) {
-                        try { fastcapDaemon.stdin.write('fps 60\nquality 90\n'); } catch(e) {}
-                    } else {
-                        try { fastcapDaemon.stdin.write('fps 3\nquality 60\n'); } catch(e) {}
-                    }
+                    // 60 FPS 초고속 캡처 항시 가동
+                    try { fastcapDaemon.stdin.write('fps 60\nquality 80\n'); } catch(e) {}
 
                     fastcapDaemon.stdout.on('data', (chunk) => {
                         if (streamUploadReq && !streamUploadReq.destroyed && !streamUploadReq.writableEnded) {
