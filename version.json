@@ -1,7 +1,7 @@
 {
-  "version": 346,
-  "updatedAt": 1787635080000,
-  "updatedDate": "2026-08-25 14:18:00",
+  "version": 347,
+  "updatedAt": 1787635320000,
+  "updatedDate": "2026-08-25 14:22:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",
@@ -12,5 +12,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 접속 즉시 원격제어 상시 활성화 및 0ms 마우스 직통 처리 (2026-08-25 14:18:00)"
+  "description": "다연코퍼레이션 1:1 물리 픽셀 마우스 포인팅 완벽 보정 (2026-08-25 14:22:00)"
 }
