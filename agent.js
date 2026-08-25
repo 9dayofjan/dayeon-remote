@@ -322,7 +322,15 @@ console.log('==================================================\n');
                     res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
                     res.end(frame);
                 } else {
-                    res.writeHead(404); res.end();
+                    captureScreen(reqMon, (freshFrame) => {
+                        if (freshFrame) {
+                            const b = Buffer.isBuffer(freshFrame) ? freshFrame : Buffer.from(freshFrame, 'base64');
+                            res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
+                            res.end(b);
+                        } else {
+                            res.writeHead(404); res.end();
+                        }
+                    });
                 }
                 return;
             }
@@ -998,9 +1006,23 @@ console.log('==================================================\n');
             lanIp: localFullIp,
             lanPort: LAN_PORT
         };
-        if (latestCapturedFrame) {
-            payloadObj.image = latestCapturedFrame.toString('base64');
+        const frame = (latestMonitorFrames && latestMonitorFrames[currentMon]) || latestCapturedFrame;
+        if (frame) {
+            payloadObj.image = frame.toString('base64');
+            doSendReport(payloadObj);
+        } else {
+            captureScreen(currentMon, (freshFrame) => {
+                if (freshFrame) {
+                    const b = Buffer.isBuffer(freshFrame) ? freshFrame : Buffer.from(freshFrame, 'base64');
+                    latestCapturedFrame = b;
+                    payloadObj.image = b.toString('base64');
+                }
+                doSendReport(payloadObj);
+            });
         }
+    }
+
+    function doSendReport(payloadObj) {
         const payload = JSON.stringify(payloadObj);
 
         const req = netModule.request({
