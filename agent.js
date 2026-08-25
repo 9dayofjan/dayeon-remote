@@ -31,6 +31,23 @@ try { execSync('netsh advfirewall firewall add rule name="DayeonLAN" dir=in acti
 try { execSync('netsh advfirewall firewall set rule name="DayeonLAN" new enable=yes 2>nul'); } catch(e) {}
 try { execSync('powershell -Command "New-NetFirewallRule -DisplayName DayeonLAN -Direction Inbound -LocalPort 8001,8002 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue" 2>nul'); } catch(e) {}
 
+// 🧹 원격 PC(클라이언트)에 존재하는 관리자 프로그램(.exe) 잔존 파일 완전 삭제
+try {
+    const userDesk = path.join(process.env.USERPROFILE || 'C:\\Users\\user', 'Desktop');
+    const pubDesk = 'C:\\Users\\Public\\Desktop';
+    const mgrNames = ['다연코퍼레이션 관리자.exe', '다연원격_관리자.exe', 'DayeonManager.exe'];
+    for (const name of mgrNames) {
+        const p1 = path.join(__dirname, name);
+        const p2 = path.join(__dirname, '..', name);
+        const p3 = path.join(userDesk, name);
+        const p4 = path.join(pubDesk, name);
+        if (fs.existsSync(p1)) { try { fs.unlinkSync(p1); } catch(e) {} }
+        if (fs.existsSync(p2)) { try { fs.unlinkSync(p2); } catch(e) {} }
+        if (fs.existsSync(p3)) { try { fs.unlinkSync(p3); } catch(e) {} }
+        if (fs.existsSync(p4)) { try { fs.unlinkSync(p4); } catch(e) {} }
+    }
+} catch(e) {}
+
 // 🌟 윈도우 부팅 시 다연코퍼레이션 100% 자동 실행 등록
 function ensureAutoStart() {
     try {

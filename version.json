@@ -1,19 +1,17 @@
 {
-  "version": 640,
-  "updatedAt": 1787720000000,
-  "updatedDate": "2026-08-25 23:45:00",
+  "version": 650,
+  "updatedAt": 1787730000000,
+  "updatedDate": "2026-08-25 23:55:00",
   "files": [
     "fastcap.exe",
     "다연원격_클라이언트.exe",
-    "다연원격_관리자.exe",
     "agent.js",
     "input_ctrl.exe",
     "audiocap.exe",
     "NAudio.dll",
     "다연코퍼레이션.exe",
-    "다연코퍼레이션 관리자.exe",
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 원격 제어 패키지"
+  "description": "다연코퍼레이션 원격 제어 패키지 (원격 PC 전용 클라이언트)"
 }
