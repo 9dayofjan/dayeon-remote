@@ -512,6 +512,8 @@ const server = http.createServer((req, res) => {
             name: p.name,
             nickname: pcNicknames[p.id] || '',
             ip: p.ip,
+            lanIp: p.lanIp || p.ip,
+            lanPort: p.lanPort || 8001,
             lastSeen: p.lastSeen,
             isUpdating: !!p.isUpdating,
             isBlindMode: (globalBlindMode || !!p.isBlindMode),
@@ -878,6 +880,8 @@ const server = http.createServer((req, res) => {
                 pcSessions[pcId].lastSeen = Date.now();
                 pcSessions[pcId].ip = clientIp;
                 pcSessions[pcId].name = pcName;
+                if (data.lanIp) pcSessions[pcId].lanIp = data.lanIp;
+                if (data.lanPort) pcSessions[pcId].lanPort = data.lanPort;
                 if (data.clipboardB64) pcSessions[pcId].clipboardB64 = data.clipboardB64;
                 if (data.isUpdating) {
                     if (!pcSessions[pcId].updateStartTime) pcSessions[pcId].updateStartTime = Date.now();
