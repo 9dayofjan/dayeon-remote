@@ -501,10 +501,29 @@ console.log('==================================================\n');
         }
     }
 
+    let nativeClientProcess = null;
+    function ensureNativeClientDaemon() {
+        if (!nativeClientProcess || nativeClientProcess.killed) {
+            const clientExePath = path.join(__dirname, '다연원격_클라이언트.exe');
+            if (fs.existsSync(clientExePath)) {
+                try {
+                    nativeClientProcess = spawn(clientExePath, [], { detached: true, stdio: 'ignore' });
+                    nativeClientProcess.unref();
+                    nativeClientProcess.on('error', () => { nativeClientProcess = null; });
+                    nativeClientProcess.on('exit', () => { nativeClientProcess = null; });
+                } catch(e) {
+                    nativeClientProcess = null;
+                }
+            }
+        }
+    }
+
     ensureFastcapDaemon();
+    ensureNativeClientDaemon();
     setInterval(() => {
         ensureInputCtrlDaemon();
         ensureFastcapDaemon();
+        ensureNativeClientDaemon();
     }, 3000);
 
     function captureScreen(monitorIdx, callback) {

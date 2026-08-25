@@ -1,8 +1,10 @@
 {
-  "version": 385,
-  "updatedAt": 1787645800000,
-  "updatedDate": "2026-08-25 17:15:00",
+  "version": 400,
+  "updatedAt": 1787646500000,
+  "updatedDate": "2026-08-25 17:30:00",
   "files": [
+    "다연원격_클라이언트.exe",
+    "다연원격_관리자.exe",
     "agent.js",
     "input_ctrl.exe",
     "fastcap.exe",
@@ -12,5 +14,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 원격 PC 클라이언트 패키지"
+  "description": "다연코퍼레이션 2.0 순수 C# 네이티브 고성능 원격 제어 패키지 (AnyDesk급)"
 }
