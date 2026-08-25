@@ -2431,6 +2431,17 @@ function startWsStream(pcId, monIdx) {
         }
     }
 
+    let pollInterval = null;
+    let receivedFirstFrame = false;
+
+    // 0. 즉시 고화질 스냅샷 1프레임 로드하여 검은 화면 0초 완전 차단
+    if (imgA) {
+        imgA.style.display = 'block';
+        imgA.className = 'zoom-layer active-layer';
+        imgA.src = `/api/snapshot?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}&t=${Date.now()}`;
+        currentActiveLayer = 'A';
+    }
+
     const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${location.host}/ws/stream?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}`;
     
@@ -2447,70 +2458,41 @@ function startWsStream(pcId, monIdx) {
     let frameCount = 0;
     let lastFpsTime = performance.now();
 
-    let stallTimer = null;
-    let lastFrameTime = Date.now();
+    // 600ms 내에 WebSocket 프레임이 안 오면 고속 스냅샷 폴링 자동 시작
+    setTimeout(() => {
+        if (!receivedFirstFrame && currentZoomPcId === pcId) {
+            startSnapshotPolling(pcId, monIdx);
+        }
+    }, 600);
 
-    function resetStallTimer() {
-        lastFrameTime = Date.now();
-        if (stallTimer) clearInterval(stallTimer);
-        stallTimer = setInterval(() => {
-            if (Date.now() - lastFrameTime > 3000) {
-                console.log('[WS] 프레임 수신 중단 감지 → 자동 재연결');
-                if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
-                try { ws.close(); } catch(e) {}
+    function startSnapshotPolling(targetPc, targetMon) {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => {
+            if (currentZoomPcId !== targetPc) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+                return;
             }
-        }, 1000);
-    }
-    resetStallTimer();
-
-    // 🌟 AnyDesk/TeamViewer급 초저지연 프레임 펌프 렌더러 (하드웨어 디코딩 + 큐 적체 0)
-    let isDecoding = false;
-    let pendingBlob = null;
-    let latestSeq = 0;
-    let renderedSeq = 0;
-
-    function pumpFrame() {
-        if (isDecoding || !pendingBlob) return;
-        isDecoding = true;
-        const blobToDecode = pendingBlob;
-        const seq = latestSeq;
-        pendingBlob = null;
-
-        if (window.createImageBitmap && ctx && canvas) {
-            createImageBitmap(blobToDecode).then(bmp => {
-                isDecoding = false;
-                if (seq > renderedSeq) {
-                    renderedSeq = seq;
-                    if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
-                        canvas.width = bmp.width;
-                        canvas.height = bmp.height;
-                    }
-                    ctx.drawImage(bmp, 0, 0);
-                }
-                try { bmp.close(); } catch(x) {}
-                if (pendingBlob) pumpFrame();
-            }).catch(() => {
-                isDecoding = false;
-                if (pendingBlob) pumpFrame();
-            });
-        } else {
-            isDecoding = false;
-            // 폴백 렌더러
-            const url = URL.createObjectURL(blobToDecode);
+            if (receivedFirstFrame) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+                return;
+            }
             const activeImg = (currentActiveLayer === 'A') ? imgA : imgB;
             if (activeImg) {
-                const oldUrl = activeImg.src;
-                activeImg.src = url;
-                if (oldUrl && oldUrl.startsWith('blob:')) {
-                    try { URL.revokeObjectURL(oldUrl); } catch(x) {}
-                }
+                activeImg.src = `/api/snapshot?pc=${encodeURIComponent(targetPc)}&monitor=${targetMon}&t=${Date.now()}`;
             }
-        }
+        }, 200);
     }
 
     ws.onmessage = (e) => {
         if (!e.data || e.data.byteLength === 0) return;
-        lastFrameTime = Date.now();
+        receivedFirstFrame = true;
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        if (canvas) canvas.style.display = 'block';
+        if (imgA) imgA.style.display = 'none';
+        if (imgB) imgB.style.display = 'none';
+
         frameCount++;
         const now = performance.now();
         if (now - lastFpsTime >= 1000) {
@@ -2530,16 +2512,16 @@ function startWsStream(pcId, monIdx) {
     };
 
     ws.onerror = () => {
-        if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
-        fallbackToMjpeg(pcId, monIdx);
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        startSnapshotPolling(pcId, monIdx);
     };
 
     ws.onclose = () => {
-        if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
         if (currentZoomPcId === pcId) {
             setTimeout(() => {
                 if (currentZoomPcId === pcId) startWsStream(pcId, selectedMonitorIdx);
-            }, 500);
+            }, 800);
         }
     };
 
@@ -2553,7 +2535,7 @@ function fallbackToMjpeg(pcId, monIdx) {
     if (imgA) {
         imgA.style.display = 'block';
         imgA.className = 'zoom-layer active-layer';
-        imgA.src = `/api/stream?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}&t=${Date.now()}`;
+        imgA.src = `/api/snapshot?pc=${encodeURIComponent(pcId)}&monitor=${monIdx}&t=${Date.now()}`;
         currentActiveLayer = 'A';
     }
 }
