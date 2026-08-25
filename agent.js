@@ -75,21 +75,35 @@ if (fs.existsSync(updateFlagFile)) {
     } catch(e) {}
 }
 
-// PC 고유 식별자 생성 (호스트네임 + IP 끝자리로 복제 PC 중복 100% 방지)
+// PC 고유 식별자 생성 (가상 어댑터 필터링 & 사내 물리 IP 우선 매칭)
 const baseHostname = process.env.COMPUTERNAME || os.hostname() || 'PC';
 const interfaces = os.networkInterfaces();
 let localIpSuffix = '';
 let localFullIp = '127.0.0.1';
-for (const k in interfaces) {
-    for (const iface of interfaces[k]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-            localFullIp = iface.address;
-            const segs = iface.address.split('.');
-            localIpSuffix = segs[segs.length - 1];
-            break;
+
+const virtualAdapterKeywords = ['vethernet', 'virtual', 'vmware', 'wsl', 'loopback', 'tap', 'zerotier', 'tailscale', 'pseudo'];
+const candidateIps = [];
+
+for (const name in interfaces) {
+    const isVirtual = virtualAdapterKeywords.some(k => name.toLowerCase().includes(k));
+    for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal && iface.address !== '127.0.0.1') {
+            candidateIps.push({ ip: iface.address, isVirtual, name });
         }
     }
-    if (localIpSuffix) break;
+}
+
+// 1순위: 가상 어댑터가 아니면서 사내망 대역(172.30.x, 192.168.x, 10.x)인 IP
+let bestIface = candidateIps.find(c => !c.isVirtual && (c.ip.startsWith('172.30.') || c.ip.startsWith('192.168.') || c.ip.startsWith('10.')));
+// 2순위: 기타 물리 어댑터 IPv4
+if (!bestIface) bestIface = candidateIps.find(c => !c.isVirtual);
+// 3순위: 전체 중 첫 번째 IPv4
+if (!bestIface && candidateIps.length > 0) bestIface = candidateIps[0];
+
+if (bestIface) {
+    localFullIp = bestIface.ip;
+    const segs = localFullIp.split('.');
+    localIpSuffix = segs[segs.length - 1];
 }
 const pcId = localIpSuffix ? `${baseHostname}_${localIpSuffix}` : baseHostname;
 
@@ -417,6 +431,7 @@ console.log('==================================================\n');
                                 const wsFrame = makeWsBinaryFrame(jpegBuf);
                                 for (const c of lanWsClients) {
                                     if (c.socket && !c.socket.destroyed && c.socket.writable) {
+                                        if (c.socket.writableLength && c.socket.writableLength > 64 * 1024) continue;
                                         try { c.socket.write(wsFrame); } catch(e) {}
                                     }
                                 }
@@ -434,6 +449,10 @@ console.log('==================================================\n');
     }
 
     ensureFastcapDaemon();
+    setInterval(() => {
+        ensureInputCtrlDaemon();
+        ensureFastcapDaemon();
+    }, 3000);
 
     function captureScreen(monitorIdx, callback) {
         ensureFastcapDaemon();
