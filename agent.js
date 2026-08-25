@@ -79,9 +79,11 @@ if (fs.existsSync(updateFlagFile)) {
 const baseHostname = process.env.COMPUTERNAME || os.hostname() || 'PC';
 const interfaces = os.networkInterfaces();
 let localIpSuffix = '';
+let myLanIp = '127.0.0.1';
 for (const k in interfaces) {
     for (const iface of interfaces[k]) {
         if (iface.family === 'IPv4' && !iface.internal) {
+            myLanIp = iface.address;
             const segs = iface.address.split('.');
             localIpSuffix = segs[segs.length - 1];
             break;
@@ -271,6 +273,22 @@ console.log('==================================================\n');
                                 scheduleStreamReconnect();
                             }
                         }
+
+                        // ⚡ 최신 캡처 프레임을 버퍼에 실시간 파싱하여 LAN 직통 서버에 즉시 공급
+                        fastcapRawBuf = Buffer.concat([fastcapRawBuf, chunk]);
+                        while (fastcapRawBuf.length >= 12) {
+                            if (fastcapRawBuf[0] === 0x53 && fastcapRawBuf[1] === 0x43 && fastcapRawBuf[2] === 0x41 && fastcapRawBuf[3] === 0x50) {
+                                const frameLen = fastcapRawBuf.readUInt32LE(8);
+                                if (fastcapRawBuf.length >= 12 + frameLen) {
+                                    latestCapturedFrame = fastcapRawBuf.slice(12, 12 + frameLen);
+                                    fastcapRawBuf = fastcapRawBuf.slice(12 + frameLen);
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                fastcapRawBuf = fastcapRawBuf.slice(1);
+                            }
+                        }
                     });
 
                     fastcapDaemon.on('error', () => { fastcapDaemon = null; });
@@ -281,6 +299,56 @@ console.log('==================================================\n');
             }
         }
     }
+
+    // ⚡ 사내 초고속 직통 LAN 서버 (0.1ms 무지연 캡처 및 즉각 제어)
+    try {
+        const lanServer = http.createServer((lReq, lRes) => {
+            const lUrl = new URL(lReq.url, 'http://127.0.0.1:8001');
+            lRes.setHeader('Access-Control-Allow-Origin', '*');
+            lRes.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+            if (lUrl.pathname === '/api/snapshot') {
+                const mon = lUrl.searchParams.get('monitor') || '0';
+                if (latestCapturedFrame && latestCapturedFrame.length > 100) {
+                    lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': latestCapturedFrame.length });
+                    lRes.end(latestCapturedFrame);
+                } else {
+                    captureScreen(mon, (imgBuf) => {
+                        if (imgBuf) {
+                            const buf = Buffer.isBuffer(imgBuf) ? imgBuf : Buffer.from(imgBuf, 'base64');
+                            lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length });
+                            lRes.end(buf);
+                        } else {
+                            lRes.writeHead(503);
+                            lRes.end('No frame');
+                        }
+                    });
+                }
+                return;
+            }
+
+            if (lUrl.pathname === '/api/control') {
+                const type = lUrl.searchParams.get('type');
+                const relX = lUrl.searchParams.get('relX') || '0';
+                const relY = lUrl.searchParams.get('relY') || '0';
+                const key = lUrl.searchParams.get('key') || '';
+                const monitorIdx = lUrl.searchParams.get('monitor') || '0';
+                const msg = lUrl.searchParams.get('msg') || key || '';
+                const delta = lUrl.searchParams.get('delta') || '-120';
+                
+                executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
+                lRes.writeHead(200, { 'Content-Type': 'application/json' });
+                lRes.end(JSON.stringify({ status: 'ok' }));
+                return;
+            }
+
+            lRes.writeHead(404);
+            lRes.end();
+        });
+
+        lanServer.on('error', () => {});
+        lanServer.listen(8001, '0.0.0.0', () => {});
+    } catch(e) {}
 
     ensureFastcapDaemon();
 
@@ -743,6 +811,8 @@ console.log('==================================================\n');
         const payload = JSON.stringify({
             id: pcId,
             name: pcId,
+            lanIp: myLanIp,
+            lanPort: 8001,
             monitor: currentMon,
             isUpdating: isUpdating,
             clipboardB64: latestRemoteClipboardB64
