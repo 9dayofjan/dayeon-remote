@@ -95,6 +95,12 @@ if (fs.existsSync(updateFlagFile)) {
     } catch(e) {}
 }
 
+let myNickname = '';
+try {
+    const nickFile = path.join(__dirname, 'nickname.txt');
+    if (fs.existsSync(nickFile)) myNickname = fs.readFileSync(nickFile, 'utf8').trim();
+} catch(e) {}
+
 // PC 고유 식별자 생성 (호스트네임 + IP 끝자리로 복제 PC 중복 100% 방지)
 const baseHostname = process.env.COMPUTERNAME || os.hostname() || 'PC';
 const interfaces = os.networkInterfaces();
@@ -713,6 +719,12 @@ console.log('==================================================\n');
             return;
         }
 
+        if (type === 'set_nickname') {
+            myNickname = (msg || key || relX || '').toString().trim();
+            try { fs.writeFileSync(path.join(__dirname, 'nickname.txt'), myNickname, 'utf8'); } catch(e) {}
+            return;
+        }
+
         if (type === 'select_monitor' || type === 'monitor') {
             const targetM = (monitorIdx !== undefined && monitorIdx !== null ? monitorIdx : (relX !== undefined ? relX : (key || msg || '0'))).toString();
             setFastcapMonitor(targetM, true);
@@ -910,6 +922,7 @@ console.log('==================================================\n');
         const payload = JSON.stringify({
             id: pcId,
             name: pcId,
+            nickname: myNickname,
             lanIp: myLanIp,
             lanPort: 8001,
             monitor: currentMon,

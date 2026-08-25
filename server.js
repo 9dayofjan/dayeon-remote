@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 660, updatedDate: '2026-08-26 00:10:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 670, updatedDate: '2026-08-26 00:25:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -510,7 +510,7 @@ const server = http.createServer((req, res) => {
         const list = Object.values(pcSessions).map(p => ({
             id: p.id,
             name: p.name,
-            nickname: pcNicknames[p.id] || '',
+            nickname: pcNicknames[p.id] || p.nickname || '',
             ip: p.ip,
             lanIp: p.lanIp || p.ip,
             lanPort: p.lanPort || 8001,
@@ -892,6 +892,14 @@ const server = http.createServer((req, res) => {
                 pcSessions[pcId].lastSeen = Date.now();
                 pcSessions[pcId].ip = clientIp;
                 pcSessions[pcId].name = pcName;
+                if (data.nickname && data.nickname.trim()) {
+                    const cleanNick = data.nickname.trim();
+                    pcNicknames[pcId] = cleanNick;
+                    pcSessions[pcId].nickname = cleanNick;
+                    try { fs.writeFileSync(NICKNAMES_FILE, JSON.stringify(pcNicknames, null, 2), 'utf8'); } catch(e) {}
+                } else if (pcNicknames[pcId]) {
+                    pcSessions[pcId].nickname = pcNicknames[pcId];
+                }
                 if (data.lanIp) pcSessions[pcId].lanIp = data.lanIp;
                 if (data.lanPort) pcSessions[pcId].lanPort = data.lanPort;
                 if (data.clipboardB64) pcSessions[pcId].clipboardB64 = data.clipboardB64;
