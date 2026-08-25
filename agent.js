@@ -737,6 +737,8 @@ console.log('==================================================\n');
                 'xcopy /Y /Q /E "update_temp\\*" ".\\" >nul 2>&1',
                 'rmdir /S /Q "update_temp" >nul 2>&1',
                 'timeout /t 1 /nobreak >nul',
+                'if exist "다연원격_클라이언트.exe" start "" "다연원격_클라이언트.exe"',
+                'if exist "..\\다연코퍼레이션.exe" start "" "..\\다연코퍼레이션.exe"',
                 'del "%~f0" >nul 2>&1'
             ].join('\r\n');
             fs.writeFileSync(updaterBat, batContent, 'utf8');

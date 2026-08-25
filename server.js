@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 440, updatedDate: '2026-08-25 18:10:00', updatedAt: Date.now(), files: ['다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 450, updatedDate: '2026-08-25 18:20:00', updatedAt: Date.now(), files: ['다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
@@ -270,7 +270,7 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update/file') {
         const fileName = path.basename(urlObj.searchParams.get('name') || '');
-        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
+        const allowedFiles = ['다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
         if (!allowedFiles.includes(fileName)) {
             res.writeHead(403);
             res.end('Forbidden');
@@ -289,7 +289,7 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update/upload_binary' && req.method === 'POST') {
         const fileName = path.basename(urlObj.searchParams.get('name') || '');
-        const allowedFiles = ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
+        const allowedFiles = ['다연원격_클라이언트.exe', '다연원격_관리자.exe', 'agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연코퍼레이션 관리자.exe', 'version.json', 'server_ip.txt'];
         if (!allowedFiles.includes(fileName)) {
             res.writeHead(403);
             res.end('Forbidden');
@@ -518,7 +518,8 @@ const server = http.createServer((req, res) => {
             isUpdating: !!p.isUpdating,
             isBlindMode: (globalBlindMode || !!p.isBlindMode),
             clipboardB64: p.clipboardB64 || '',
-            activeMonitor: (p.activeMonitor !== undefined && p.activeMonitor !== null) ? p.activeMonitor.toString() : '0'
+            activeMonitor: (p.activeMonitor !== undefined && p.activeMonitor !== null) ? p.activeMonitor.toString() : '0',
+            image: p.lastGoodBuffer ? p.lastGoodBuffer.toString('base64') : ''
         }));
         res.end(JSON.stringify({
             pcs: list,
