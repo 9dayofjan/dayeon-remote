@@ -105,7 +105,7 @@ function loadAllowedIps() {
     allowedIps = Array.from(set);
 }
 // ---- 📦 최신 버전 무중단 동기화 모듈 (서버 다운 없이 메모리 즉시 갱신) ----
-let cachedVersion = { version: 100, updatedDate: '' };
+let cachedVersion = { version: 340, updatedDate: '2026-08-25 13:50:00' };
 function loadServerVersion() {
     try {
         const vFile = path.join(__dirname, 'version.json');
@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0. 버전 조회 및 원격 자동 업데이트 배포 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = { version: 100, updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'version.json'] };
+        let verData = Object.assign({ version: 340, updatedDate: '2026-08-25 13:50:00', updatedAt: Date.now(), files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
