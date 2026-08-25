@@ -778,8 +778,8 @@ const server = http.createServer((req, res) => {
                     for (const wsClient of pcSessions[pcId].wsClients) {
                         if (!wsClient.monitor || wsClient.monitor === currentMonKey) {
                             if (wsClient.socket && !wsClient.socket.destroyed && wsClient.socket.writable) {
-                                if (wsClient.socket.writableLength && wsClient.socket.writableLength > 512 * 1024) {
-                                    continue; // 브라우저 수신 지연 시 프레임 드랍
+                                if (wsClient.socket.writableLength && wsClient.socket.writableLength > 64 * 1024) {
+                                    continue; // 브라우저 수신 지연 시 이전 프레임 즉시 드랍 (무지연 보장)
                                 }
                                 try { wsClient.socket.write(wsFrame); } catch(e) {}
                             }

@@ -305,7 +305,7 @@
             <span>관리자: <strong class="stat-badge" id="onlineAdmins" style="background:#1e1b4b;border-color:#6366f1;color:#a5b4fc;">👤 1명 접속</strong></span>
             <button class="header-msg-btn" onclick="openMsgModal('all')">💬 전체 공지</button>
             <button class="header-msg-btn" style="background:#065f46;border:1px solid #10b981;color:#a7f3d0;font-weight:bold;" onclick="triggerAutoUpdateAll()">🚀 전체 PC 업데이트</button>
-            <span id="versionBadge" style="font-size:0.75rem;color:#38bdf8;font-weight:bold;background:#0f172a;border:1px solid #0284c7;padding:3px 8px;border-radius:12px;white-space:nowrap;">UPDATE (2026-08-25 14:09:00)</span>
+            <span id="versionBadge" style="font-size:0.75rem;color:#38bdf8;font-weight:bold;background:#0f172a;border:1px solid #0284c7;padding:3px 8px;border-radius:12px;white-space:nowrap;">UPDATE (2026-08-25 14:11:00)</span>
         </div>
         <div class="grid-selector">
             <button class="grid-btn active" id="gridBtn20" onclick="setGrid(20)">전체 PC 보기</button>
@@ -2336,7 +2336,7 @@ function startWsStream(pcId, monIdx) {
     let pollInterval = null;
     let receivedFirstFrame = false;
 
-    // 0. 즉시 고화질 스냅샷 1프레임 로드하여 검은 화면 0초 완전 차단
+    // 0. 즉시 스냅샷 1프레임 로드하여 검은 화면 방지
     if (imgA) {
         imgA.style.display = 'block';
         imgA.className = 'zoom-layer active-layer';
@@ -2359,23 +2359,68 @@ function startWsStream(pcId, monIdx) {
 
     let frameCount = 0;
     let lastFpsTime = performance.now();
+    let isDecoding = false;
+    let pendingBlob = null;
 
-    // 600ms 내에 WebSocket 프레임이 안 오면 고속 스냅샷 폴링 자동 시작
+    async function pumpFrame() {
+        if (isDecoding || !pendingBlob) return;
+        isDecoding = true;
+        const blobToDecode = pendingBlob;
+        pendingBlob = null;
+
+        try {
+            const bmp = await createImageBitmap(blobToDecode, {
+                premultiplyAlpha: 'none',
+                colorSpaceConversion: 'none'
+            });
+
+            if (currentZoomPcId === pcId && canvas && ctx) {
+                if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
+                    canvas.width = bmp.width;
+                    canvas.height = bmp.height;
+                }
+                ctx.drawImage(bmp, 0, 0);
+            }
+            if (latestBitmap) {
+                try { latestBitmap.close(); } catch(e) {}
+            }
+            latestBitmap = bmp;
+        } catch(e) {
+            // 폴백: 일반 이미지 객체 디코딩
+            try {
+                const url = URL.createObjectURL(blobToDecode);
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    if (currentZoomPcId === pcId && canvas && ctx) {
+                        if (canvas.width !== tempImg.naturalWidth || canvas.height !== tempImg.naturalHeight) {
+                            canvas.width = tempImg.naturalWidth;
+                            canvas.height = tempImg.naturalHeight;
+                        }
+                        ctx.drawImage(tempImg, 0, 0);
+                    }
+                    URL.revokeObjectURL(url);
+                };
+                tempImg.src = url;
+            } catch(err) {}
+        } finally {
+            isDecoding = false;
+            if (pendingBlob) {
+                requestAnimationFrame(pumpFrame);
+            }
+        }
+    }
+
+    // 800ms 내에 WebSocket 프레임이 안 올 경우에만 스냅샷 폴링 백업 가동
     setTimeout(() => {
         if (!receivedFirstFrame && currentZoomPcId === pcId) {
             startSnapshotPolling(pcId, monIdx);
         }
-    }, 600);
+    }, 800);
 
     function startSnapshotPolling(targetPc, targetMon) {
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => {
-            if (currentZoomPcId !== targetPc) {
-                clearInterval(pollInterval);
-                pollInterval = null;
-                return;
-            }
-            if (receivedFirstFrame) {
+            if (currentZoomPcId !== targetPc || receivedFirstFrame) {
                 clearInterval(pollInterval);
                 pollInterval = null;
                 return;
@@ -2384,16 +2429,18 @@ function startWsStream(pcId, monIdx) {
             if (activeImg) {
                 activeImg.src = `/api/snapshot?pc=${encodeURIComponent(targetPc)}&monitor=${targetMon}&t=${Date.now()}`;
             }
-        }, 800);
+        }, 1000);
     }
 
     ws.onmessage = (e) => {
         if (!e.data || e.data.byteLength === 0) return;
-        receivedFirstFrame = true;
-        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-        if (canvas) canvas.style.display = 'block';
-        if (imgA) imgA.style.display = 'none';
-        if (imgB) imgB.style.display = 'none';
+        if (!receivedFirstFrame) {
+            receivedFirstFrame = true;
+            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+            if (canvas) canvas.style.display = 'block';
+            if (imgA) imgA.style.display = 'none';
+            if (imgB) imgB.style.display = 'none';
+        }
 
         frameCount++;
         const now = performance.now();
@@ -2408,7 +2455,6 @@ function startWsStream(pcId, monIdx) {
             }
         }
 
-        latestSeq++;
         pendingBlob = new Blob([e.data], { type: 'image/jpeg' });
         pumpFrame();
     };

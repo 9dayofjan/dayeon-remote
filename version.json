@@ -1,7 +1,7 @@
 {
-  "version": 342,
-  "updatedAt": 1787634540000,
-  "updatedDate": "2026-08-25 14:09:00",
+  "version": 343,
+  "updatedAt": 1787634660000,
+  "updatedDate": "2026-08-25 14:11:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",
@@ -12,5 +12,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 1:1 물리적 픽셀 정렬 및 초저지연 최적화 (2026-08-25 14:09:00)"
+  "description": "다연코퍼레이션 팀뷰어/애니데스크급 초저지연 Canvas GPU 가속 렌더러 탑재 (2026-08-25 14:11:00)"
 }
