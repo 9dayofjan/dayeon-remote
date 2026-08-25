@@ -917,7 +917,7 @@ console.log('==================================================\n');
             }
         }
 
-        const payload = JSON.stringify({
+        const payloadObj = {
             id: pcId,
             name: pcId,
             monitor: currentMon,
@@ -925,7 +925,11 @@ console.log('==================================================\n');
             clipboardB64: latestRemoteClipboardB64,
             lanIp: localFullIp,
             lanPort: LAN_PORT
-        });
+        };
+        if (latestCapturedFrame) {
+            payloadObj.image = latestCapturedFrame.toString('base64');
+        }
+        const payload = JSON.stringify(payloadObj);
 
         const req = netModule.request({
             hostname: targetHost,
