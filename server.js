@@ -1151,6 +1151,10 @@ const server = http.createServer((req, res) => {
                     }
                 }
             }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ok', blindMode: globalBlindMode }));
+            return;
+        }
 
         if (type === 'set_nickname' && rawTargetPc) {
             const rawNick = urlObj.searchParams.get('nickname') || msg || key || '';
