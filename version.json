@@ -1,7 +1,7 @@
 {
-  "version": 348,
-  "updatedAt": 1787635680000,
-  "updatedDate": "2026-08-25 14:28:00",
+  "version": 349,
+  "updatedAt": 1787635800000,
+  "updatedDate": "2026-08-25 14:30:00",
   "files": [
     "agent.js",
     "input_ctrl.exe",
@@ -12,5 +12,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 웹페이지 100% 탑재 전용 네이티브 앱 윈도우 지원 (2026-08-25 14:28:00)"
+  "description": "다연코퍼레이션 드로잉 및 클릭 물리 1:1 완벽 정렬 (2026-08-25 14:30:00)"
 }
