@@ -1152,8 +1152,9 @@ const server = http.createServer((req, res) => {
                 }
             }
 
-        if (type === 'set_nickname' && rawTargetPc && msg) {
-            const cleanNick = msg.trim();
+        if (type === 'set_nickname' && rawTargetPc) {
+            const rawNick = urlObj.searchParams.get('nickname') || msg || key || '';
+            const cleanNick = rawNick.trim();
             for (const pcId of Object.keys(pcSessions)) {
                 if (pcId.toLowerCase() === rawTargetPc.toLowerCase() || (pcSessions[pcId].name && pcSessions[pcId].name.toLowerCase() === rawTargetPc.toLowerCase())) {
                     pcNicknames[pcId] = cleanNick;
