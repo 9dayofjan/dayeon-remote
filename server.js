@@ -241,7 +241,7 @@ const server = http.createServer((req, res) => {
     // 0-1. 원격 PC(클라이언트 에이전트) 전용 버전 조회 API
     if (pathname === '/api/version') {
         const verFile = path.join(__dirname, 'version.json');
-        let verData = Object.assign({ version: 710, updatedDate: '2026-08-26 10:05:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
+        let verData = Object.assign({ version: 720, updatedDate: '2026-08-26 10:25:00', updatedAt: Date.now(), files: ['fastcap.exe', '다연원격_클라이언트.exe', 'agent.js', 'input_ctrl.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'] }, cachedVersion);
         if (fs.existsSync(verFile)) {
             try { 
                 const d = JSON.parse(fs.readFileSync(verFile, 'utf8'));
