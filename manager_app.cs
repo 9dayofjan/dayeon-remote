@@ -1390,8 +1390,29 @@ public class RemoteViewerForm : Form {
         if (!string.IsNullOrEmpty(currentZoomPcId)) {
             var pc = pcList.Find(p => p.Id == currentZoomPcId);
             if (pc != null) pc.ActiveMonitor = monIdx;
-            SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
-            StartZoomStream(currentZoomPcId, monIdx);
+
+            byte bMon = 0;
+            byte.TryParse(monIdx, out bMon);
+
+            bool sentOnActiveStream = false;
+            lock (zoomTcpLock) {
+                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
+                    try {
+                        byte[] setMonCmd = new byte[8];
+                        setMonCmd[0] = 0x02; // SET_MONITOR
+                        setMonCmd[1] = bMon;
+                        activeZoomTcpStream.Write(setMonCmd, 0, 8);
+                        sentOnActiveStream = true;
+                    } catch { }
+                }
+            }
+
+            if (!sentOnActiveStream) {
+                SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
+                StartZoomStream(currentZoomPcId, monIdx);
+            } else {
+                SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
+            }
         }
     }
 
