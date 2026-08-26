@@ -1897,12 +1897,12 @@ public class RemoteViewerForm : Form {
                     if (cmdType != 0) {
                         byte bMon = 0;
                         byte.TryParse(monIdx, out bMon);
-                        int pX = (int)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
-                        int pY = (int)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
+                        ushort pX = (ushort)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
+                        ushort pY = (ushort)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
 
                         if (cmdType == 0x20 || cmdType == 0x21) {
                             Keys k;
-                            if (Enum.TryParse<Keys>(key, out k)) pX = (int)k;
+                            if (Enum.TryParse<Keys>(key, out k)) pX = (ushort)k;
                         }
 
                         byte[] pkt = new byte[8];
@@ -1911,8 +1911,8 @@ public class RemoteViewerForm : Form {
                         if (type == "wheel") {
                             BitConverter.GetBytes((short)delta).CopyTo(pkt, 4);
                         } else {
-                            BitConverter.GetBytes((short)pX).CopyTo(pkt, 4);
-                            BitConverter.GetBytes((short)pY).CopyTo(pkt, 6);
+                            BitConverter.GetBytes(pX).CopyTo(pkt, 4);
+                            BitConverter.GetBytes(pY).CopyTo(pkt, 6);
                         }
 
                         try {
