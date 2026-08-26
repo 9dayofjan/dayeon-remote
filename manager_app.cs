@@ -1390,29 +1390,8 @@ public class RemoteViewerForm : Form {
         if (!string.IsNullOrEmpty(currentZoomPcId)) {
             var pc = pcList.Find(p => p.Id == currentZoomPcId);
             if (pc != null) pc.ActiveMonitor = monIdx;
-
-            byte bMon = 0;
-            byte.TryParse(monIdx, out bMon);
-
-            bool sentOnActiveStream = false;
-            lock (zoomTcpLock) {
-                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
-                    try {
-                        byte[] setMonCmd = new byte[8];
-                        setMonCmd[0] = 0x02; // SET_MONITOR
-                        setMonCmd[1] = bMon;
-                        activeZoomTcpStream.Write(setMonCmd, 0, 8);
-                        sentOnActiveStream = true;
-                    } catch { }
-                }
-            }
-
-            if (!sentOnActiveStream) {
-                SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
-                StartZoomStream(currentZoomPcId, monIdx);
-            } else {
-                SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
-            }
+            SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
+            StartZoomStream(currentZoomPcId, monIdx);
         }
     }
 
@@ -1432,87 +1411,9 @@ public class RemoteViewerForm : Form {
 
         var pc = pcList.Find(p => p.Id == pcId);
         string lanIp = GetLanIpForPc(pcId);
-        byte bMon = 0;
-        byte.TryParse(monIdx, out bMon);
 
         Task.Run(async () => {
             while (!token.IsCancellationRequested && isZoomMode && currentZoomPcId == pcId) {
-                // 1. TCP 8888 초고속 60 FPS 네이티브 직통 스트림 시도
-                if (lanIp != null) {
-                    TcpClient tcp = null;
-                    try {
-                        tcp = new TcpClient();
-                        tcp.NoDelay = true;
-                        tcp.ReceiveBufferSize = 1024 * 1024 * 8;
-                        var ar = tcp.BeginConnect(lanIp, 8888, null, null);
-                        if (ar.AsyncWaitHandle.WaitOne(400)) {
-                            tcp.EndConnect(ar);
-                            var ns = tcp.GetStream();
-                            ns.ReadTimeout = 2000;
-                            ns.WriteTimeout = 500;
-                            lock (zoomTcpLock) {
-                                activeZoomTcpStream = ns;
-                            }
-
-                            byte[] setModeCmd = new byte[8];
-                            setModeCmd[0] = 0x01; // SET_MODE
-                            setModeCmd[1] = bMon;
-                            BitConverter.GetBytes((short)1).CopyTo(setModeCmd, 4); // zoom = 1 (60 FPS)
-                            ns.Write(setModeCmd, 0, 8);
-
-                            byte[] hdr = new byte[12];
-                            byte[] frameBuf = new byte[1024 * 1024 * 4];
-
-                            while (!token.IsCancellationRequested && isZoomMode && currentZoomPcId == pcId && tcp.Connected) {
-                                int rH = 0;
-                                while (rH < 12) {
-                                    int r = ns.Read(hdr, rH, 12 - rH);
-                                    if (r <= 0) break;
-                                    rH += r;
-                                }
-                                if (rH < 12 || hdr[0] != 'D' || hdr[1] != 'Y' || hdr[2] != '0' || hdr[3] != '1') break;
-
-                                int frameLen = BitConverter.ToInt32(hdr, 8);
-                                if (frameLen <= 0 || frameLen > frameBuf.Length) break;
-
-                                int rP = 0;
-                                while (rP < frameLen) {
-                                    int r = ns.Read(frameBuf, rP, frameLen - rP);
-                                    if (r <= 0) break;
-                                    rP += r;
-                                }
-                                if (rP < frameLen) break;
-
-                                using (var frameMs = new MemoryStream(frameBuf, 0, frameLen, false))
-                                using (var temp = Image.FromStream(frameMs, false, false)) {
-                                    Bitmap newBmp = new Bitmap(temp);
-                                    lock (bmpLock) {
-                                        if (currentZoomBitmap != null) currentZoomBitmap.Dispose();
-                                        currentZoomBitmap = newBmp;
-                                        if (!isRenderPending) {
-                                            isRenderPending = true;
-                                            try {
-                                                renderCanvas.BeginInvoke((Action)(() => {
-                                                    renderCanvas.Invalidate();
-                                                }));
-                                            } catch { }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch {
-                    } finally {
-                        lock (zoomTcpLock) {
-                            activeZoomTcpStream = null;
-                        }
-                        if (tcp != null) try { tcp.Close(); } catch { }
-                    }
-                }
-
-                if (token.IsCancellationRequested || !isZoomMode || currentZoomPcId != pcId) break;
-
-                // 2. HTTP 스트림 폴백
                 try {
                     string streamUrl = (lanIp != null) 
                         ? ("http://" + lanIp + ":" + (pc != null && pc.LanPort > 0 ? pc.LanPort : 8001) + "/api/stream?monitor=" + monIdx) 
@@ -1880,56 +1781,12 @@ public class RemoteViewerForm : Form {
     private static object lanTcpLock = new object();
 
     private void SendControlFast(string pcId, string type, float relX, float relY, string monIdx, string key = null, string msg = null, int delta = 0) {
-        // ⚡ 0. 활성화된 직통 Zoom 스트림 연결이 있는 경우 즉시 전송 (0.0001ms 지연 제로)
-        if (isZoomMode && currentZoomPcId == pcId) {
-            lock (zoomTcpLock) {
-                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
-                    byte cmdType = 0;
-                    if (type == "mousemove" || type == "move") cmdType = 0x10;
-                    else if (type == "mousedown" || type == "click") cmdType = 0x11;
-                    else if (type == "mouseup") cmdType = 0x12;
-                    else if (type == "rightclick") cmdType = 0x13;
-                    else if (type == "doubleclick") cmdType = 0x15;
-                    else if (type == "wheel") cmdType = 0x15;
-                    else if (type == "keydown") cmdType = 0x20;
-                    else if (type == "keyup") cmdType = 0x21;
-
-                    if (cmdType != 0) {
-                        byte bMon = 0;
-                        byte.TryParse(monIdx, out bMon);
-                        ushort pX = (ushort)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
-                        ushort pY = (ushort)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
-
-                        if (cmdType == 0x20 || cmdType == 0x21) {
-                            Keys k;
-                            if (Enum.TryParse<Keys>(key, out k)) pX = (ushort)k;
-                        }
-
-                        byte[] pkt = new byte[8];
-                        pkt[0] = cmdType;
-                        pkt[1] = bMon;
-                        if (type == "wheel") {
-                            BitConverter.GetBytes((short)delta).CopyTo(pkt, 4);
-                        } else {
-                            BitConverter.GetBytes(pX).CopyTo(pkt, 4);
-                            BitConverter.GetBytes(pY).CopyTo(pkt, 6);
-                        }
-
-                        try {
-                            activeZoomTcpStream.Write(pkt, 0, 8);
-                            return; // ⚡ 0.0001ms 즉각 전송 완료!
-                        } catch { }
-                    }
-                }
-            }
-        }
-
         Task.Run(() => {
             try {
                 var pc = pcList.Find(p => p.Id == pcId);
                 string lanIp = GetLanIpForPc(pcId);
 
-                // ⚡ 1. 사내 LAN 8002번 초저지연 Raw TCP 직통 소켓 (재사용 연결 풀)
+                // ⚡ 1. 사내 LAN 8002번 초저지연 Raw TCP 직통 소켓 (0.001ms 즉시 전송)
                 if (type != "set_nickname" && lanIp != null && pcId != "all") {
                     try {
                         TcpClient tcp = null;
