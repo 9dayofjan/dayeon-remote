@@ -616,8 +616,14 @@ const server = http.createServer((req, res) => {
                 }
             }
         }
-        if (!targetPcId && Object.keys(pcSessions).length > 0) {
-            targetPcId = Object.keys(pcSessions)[0];
+        if (!targetPcId) {
+            if (!rawTargetPc && Object.keys(pcSessions).length > 0) {
+                targetPcId = Object.keys(pcSessions)[0];
+            } else {
+                res.writeHead(404, { 'Content-Type': 'text/plain' });
+                res.end('PC not found');
+                return;
+            }
         }
 
         if (targetPcId && pcSessions[targetPcId]) {
