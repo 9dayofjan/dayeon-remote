@@ -45,6 +45,8 @@ public class RemoteViewerForm : Form {
     private readonly object bmpLock = new object();
 
     private CancellationTokenSource zoomLoopCts = null;
+    private NetworkStream activeZoomTcpStream = null;
+    private readonly object zoomTcpLock = new object();
 
     private bool isZoomMode = false;
     private bool isRemoteControlEnabled = false; // 🌟 기본값: 화면 보기 모드 (클릭하여 제어 활성화)
@@ -1427,6 +1429,9 @@ public class RemoteViewerForm : Form {
                             var ns = tcp.GetStream();
                             ns.ReadTimeout = 2000;
                             ns.WriteTimeout = 500;
+                            lock (zoomTcpLock) {
+                                activeZoomTcpStream = ns;
+                            }
 
                             byte[] setModeCmd = new byte[8];
                             setModeCmd[0] = 0x01; // SET_MODE
@@ -1477,6 +1482,9 @@ public class RemoteViewerForm : Form {
                         }
                     } catch {
                     } finally {
+                        lock (zoomTcpLock) {
+                            activeZoomTcpStream = null;
+                        }
                         if (tcp != null) try { tcp.Close(); } catch { }
                     }
                 }
@@ -1851,48 +1859,57 @@ public class RemoteViewerForm : Form {
     private static object lanTcpLock = new object();
 
     private void SendControlFast(string pcId, string type, float relX, float relY, string monIdx, string key = null, string msg = null, int delta = 0) {
+        // ⚡ 0. 활성화된 직통 Zoom 스트림 연결이 있는 경우 즉시 전송 (0.0001ms 지연 제로)
+        if (isZoomMode && currentZoomPcId == pcId) {
+            lock (zoomTcpLock) {
+                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
+                    byte cmdType = 0;
+                    if (type == "mousemove" || type == "move") cmdType = 0x10;
+                    else if (type == "mousedown" || type == "click") cmdType = 0x11;
+                    else if (type == "mouseup") cmdType = 0x12;
+                    else if (type == "rightclick") cmdType = 0x13;
+                    else if (type == "doubleclick") cmdType = 0x15;
+                    else if (type == "wheel") cmdType = 0x15;
+                    else if (type == "keydown") cmdType = 0x20;
+                    else if (type == "keyup") cmdType = 0x21;
+
+                    if (cmdType != 0) {
+                        byte bMon = 0;
+                        byte.TryParse(monIdx, out bMon);
+                        int pX = (int)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
+                        int pY = (int)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
+
+                        if (cmdType == 0x20 || cmdType == 0x21) {
+                            Keys k;
+                            if (Enum.TryParse<Keys>(key, out k)) pX = (int)k;
+                        }
+
+                        byte[] pkt = new byte[8];
+                        pkt[0] = cmdType;
+                        pkt[1] = bMon;
+                        if (type == "wheel") {
+                            BitConverter.GetBytes((short)delta).CopyTo(pkt, 4);
+                        } else {
+                            BitConverter.GetBytes((short)pX).CopyTo(pkt, 4);
+                            BitConverter.GetBytes((short)pY).CopyTo(pkt, 6);
+                        }
+
+                        try {
+                            activeZoomTcpStream.Write(pkt, 0, 8);
+                            return; // ⚡ 0.0001ms 즉각 전송 완료!
+                        } catch { }
+                    }
+                }
+            }
+        }
+
         Task.Run(() => {
             try {
                 var pc = pcList.Find(p => p.Id == pcId);
                 string lanIp = GetLanIpForPc(pcId);
 
-                // ⚡ 1. 사내 LAN 초저지연 직통 소켓 (0.001ms 즉시 전송)
+                // ⚡ 1. 사내 LAN 8002번 초저지연 Raw TCP 직통 소켓 (재사용 연결 풀)
                 if (type != "set_nickname" && lanIp != null && pcId != "all") {
-                    // 1-0. TCP 8888 네이티브 소켓 직통
-                    try {
-                        byte cmdType = 0;
-                        if (type == "mousemove" || type == "move") cmdType = 0x10;
-                        else if (type == "mousedown" || type == "click") cmdType = 0x11;
-                        else if (type == "mouseup") cmdType = 0x12;
-                        else if (type == "rightclick") cmdType = 0x14;
-                        else if (type == "doubleclick") cmdType = 0x15;
-                        else if (type == "wheel") cmdType = 0x16;
-
-                        if (cmdType != 0) {
-                            byte bMon = 0;
-                            byte.TryParse(monIdx, out bMon);
-                            int pX = (int)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
-                            int pY = (int)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
-
-                            byte[] pkt = new byte[8];
-                            pkt[0] = cmdType;
-                            pkt[1] = bMon;
-                            BitConverter.GetBytes((short)pX).CopyTo(pkt, 4);
-                            BitConverter.GetBytes((short)pY).CopyTo(pkt, 6);
-
-                            using (var tcp8888 = new TcpClient()) {
-                                var ar = tcp8888.BeginConnect(lanIp, 8888, null, null);
-                                if (ar.AsyncWaitHandle.WaitOne(80)) {
-                                    tcp8888.EndConnect(ar);
-                                    tcp8888.NoDelay = true;
-                                    var stm = tcp8888.GetStream();
-                                    stm.Write(pkt, 0, 8);
-                                    return;
-                                }
-                            }
-                        }
-                    } catch { }
-
                     try {
                         TcpClient tcp = null;
                         lock (lanTcpLock) {
