@@ -1586,7 +1586,7 @@ class InputCtrl {
                         ExecuteCommand(new string[] { "popup", msgParam });
                         continue;
                     }
-                    string[] parts = line.Split(' ');
+                    string[] parts = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                     ExecuteCommand(parts);
                 }
             }

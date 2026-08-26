@@ -1,0 +1,11 @@
+# 🌐 Cloudflare Zero Trust 365일 영구 고정 도메인 설정
+# (공유기 포트포워딩 불필요 / 어디서나 HTTPS 보안 고정 접속)
+#
+# 1. https://one.dash.cloudflare.com (Cloudflare Zero Trust) 접속하여 로그인
+# 2. [Networks] -> [Tunnels] -> [Create a tunnel] 클릭 (이름: dayeon-tunnel)
+# 3. [Windows] 선택 후 생성된 명령어 속 긴 토큰 문자열(eyJh...) 복사하여 아래 TOKEN에 붙여넣기
+# 4. [Public Hostname] 탭에서 서브도메인(예: remote), 내 도메인 선택 후 Type: HTTP, URL: 127.0.0.1:8080 설정
+# 5. 아래 DOMAIN에 연결한 도메인 주소(예: https://remote.회사도메인.com)를 입력하고 저장하면 완료!
+
+TOKEN=
+DOMAIN=

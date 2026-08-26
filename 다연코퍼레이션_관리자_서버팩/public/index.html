@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다연코퍼레이션</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #0b0f19; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; user-select: none; }
+        header { background-color: #111827; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; font-weight: 700; color: #38bdf8; }
+        .grid-selector { display: flex; gap: 8px; background: #1f2937; padding: 4px; border-radius: 6px; }
+        .grid-btn { background: transparent; color: #9ca3af; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+        .grid-btn.active { background: #3b82f6; color: white; }
+        .stats-bar { display: flex; gap: 16px; font-size: 0.85rem; color: #9ca3af; }
+        .stat-badge { color: #22c55e; font-weight: bold; }
+        main { flex: 1; padding: 12px; overflow: hidden; }
+        .cctv-grid { display: grid; gap: 12px; width: 100%; height: 100%; overflow-y: auto; }
+        .grid-auto { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); grid-auto-rows: 240px; }
+        .grid-20 { grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(4, 1fr); }
+        .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+        .grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        .pc-tile { background: #111827; border: 1px solid #1f2937; border-radius: 8px; position: relative; display: flex; flex-direction: column; overflow: hidden; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+        .pc-tile:hover { border-color: #38bdf8; box-shadow: 0 0 16px rgba(56,189,248,0.4); }
+        .tile-header { background: rgba(17,24,39,0.95); padding: 6px 12px; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+        .pc-status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #22c55e; display: inline-block; margin-right: 6px; box-shadow: 0 0 6px #22c55e; }
+        .tile-video-wrap { flex: 1; background: #000; position: relative; overflow: hidden; min-height: 0; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .tile-video-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+        .tile-overlay-btns { position: absolute; bottom: 6px; right: 6px; display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; z-index: 5; }
+        .pc-tile:hover .tile-overlay-btns { opacity: 1; }
+        .mini-btn { background: rgba(15,23,42,0.9); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+        .mini-btn:hover { background: #3b82f6; }
+        .empty-state { grid-column: 1 / -1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #9ca3af; gap: 12px; height: 100%; font-size: 1rem; }
+
+        .zoom-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11,15,25,0.97); z-index: 9999; display: none; flex-direction: column; padding: 16px; }
+        .zoom-modal.active { display: flex; }
+        .zoom-header { display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 20px; border-radius: 8px; border: 1px solid #1f2937; margin-bottom: 12px; flex-shrink: 0; gap: 12px; }
+        .zoom-title { font-size: 1.1rem; font-weight: 700; color: #38bdf8; }
+        .zoom-tools { display: flex; align-items: center; gap: 12px; }
+        .monitor-selector { display: flex; gap: 6px; background: #0f172a; padding: 4px; border-radius: 6px; border: 1px solid #334155; }
+        .monitor-btn { background: transparent; color: #cbd5e1; border: none; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }
+        .monitor-btn.active { background: #38bdf8; color: #0f172a; font-weight: bold; }
+        
+        .record-btn { background: #1f2937; color: #f8fafc; border: 1px solid #374151; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .record-btn:hover { background: #374151; border-color: #60a5fa; }
+        .record-btn.recording { background: #991b1b; border-color: #ef4444; color: #fff; animation: pulse-rec 1.2s infinite; }
+        @keyframes pulse-rec { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+
+        .zoom-body { flex: 1; background: #000; border-radius: 8px; border: 1px solid #1f2937; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; min-height: 0; }
+        .zoom-body img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: default; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+        .zoom-touch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: default; z-index: 10; }
+        .close-btn { background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover { background: #dc2626; }
+
+        .click-ripple { position: fixed; width: 20px; height: 20px; border-radius: 50%; background: rgba(34,197,94,0.85); border: 2px solid #fff; pointer-events: none; transform: translate(-50%,-50%); animation: ripple-anim 0.4s ease-out forwards; z-index: 99999; }
+        @keyframes ripple-anim { 0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; } }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <header>
+        <div class="logo"><span>🏢 다연코퍼레이션</span></div>
+        <div class="stats-bar">
+            <span>연결된 PC: <strong class="stat-badge" id="onlinePcs">0대 ONLINE</strong></span>
+        </div>
+        <div class="grid-selector">
+            <button class="grid-btn active" onclick="setGrid('auto')">자동</button>
+            <button class="grid-btn" onclick="setGrid(20)">20분할</button>
+            <button class="grid-btn" onclick="setGrid(4)">4분할</button>
+            <button class="grid-btn" onclick="setGrid(1)">1분할</button>
+        </div>
+    </header>
+    <main>
+        <div class="cctv-grid grid-auto" id="cctvGrid"></div>
+    </main>
+
+    <div class="zoom-modal" id="zoomModal" oncontextmenu="return false;">
+        <div class="zoom-header">
+            <div class="zoom-title">🔍 원격 제어: <strong id="zoomPcId" style="color:#fff;"></strong></div>
+            <div class="zoom-tools">
+                <div class="monitor-selector">
+                    <button class="monitor-btn active" id="monBtn0" onclick="selectMonitor('0')">🖥️ 모니터 1</button>
+                    <button class="monitor-btn" id="monBtn1" onclick="selectMonitor('1')">🖥️ 모니터 2</button>
+                    <button class="monitor-btn" id="monBtn2" onclick="selectMonitor('2')">🖥️ 모니터 3</button>
+                </div>
+                <button class="record-btn" id="recordBtn" onclick="toggleRecording()">
+                    <span id="recordIcon">🎥</span>
+                    <span id="recordText">화면 녹화 시작</span>
+                </button>
+            </div>
+            <button class="close-btn" onclick="closeZoomModal()">❌ 닫기</button>
+        </div>
+        <div class="zoom-body" id="zoomBody" oncontextmenu="return false;">
+            <img id="zoomStreamImg" src="" draggable="false">
+            <div class="zoom-touch-layer" id="zoomTouchLayer" oncontextmenu="return false;"></div>
+        </div>
+    </div>
+
+<script>
+const cctvGrid = document.getElementById('cctvGrid');
+const zoomModal = document.getElementById('zoomModal');
+const zoomStreamImg = document.getElementById('zoomStreamImg');
+const zoomTouchLayer = document.getElementById('zoomTouchLayer');
+const recordBtn = document.getElementById('recordBtn');
+const recordIcon = document.getElementById('recordIcon');
+const recordText = document.getElementById('recordText');
+
+let activePcs = [];
+let currentZoomPcId = null;
+let selectedMonitorIdx = '0';
+
+// ---- 화면 녹화 상태 ----
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordStartTime = 0;
+let recordTimerInterval = null;
+let recordDrawInterval = null;
+
+// ---- PC 목록 갱신 ----
+async function updatePcList() {
+    try {
+        const res = await fetch('/api/pcs');
+        if (res.ok) {
+            const pcs = await res.json();
+            activePcs = pcs;
+            document.getElementById('onlinePcs').innerText = pcs.length + '대 ONLINE';
+            renderGrid();
+        }
+    } catch(e) {}
+}
+
+function renderGrid() {
+    if (activePcs.length === 0) {
+        cctvGrid.innerHTML = '<div class="empty-state"><span style="font-size:2rem;">🔌</span><span>현재 연결된 PC가 없습니다.</span></div>';
+        return;
+    }
+    const empty = cctvGrid.querySelector('.empty-state');
+    if (empty) empty.remove();
+
+    for (const pc of activePcs) {
+        const pcId = pc.id;
+        if (document.getElementById('tile-' + pcId)) continue;
+
+        const tile = document.createElement('div');
+        tile.className = 'pc-tile';
+        tile.id = 'tile-' + pcId;
+        tile.innerHTML = `
+            <div class="tile-header">
+                <div><span class="pc-status-dot"></span><strong>${pc.name}</strong></div>
+                <span style="color:#9ca3af;font-size:0.75rem;">${pc.ip||''}</span>
+            </div>
+            <div class="tile-video-wrap">
+                <img id="tileimg-${pcId}" src="/api/stream?pc=${encodeURIComponent(pcId)}&monitor=0" draggable="false">
+                <div class="tile-overlay-btns">
+                    <button class="mini-btn" onclick="event.stopPropagation();openZoomModal('${pcId}')">🔍 확대</button>
+                </div>
+            </div>`;
+        cctvGrid.appendChild(tile);
+
+        // 타일 클릭 또는 더블클릭 시 바로 확대 창 열기 (작은 타일 내 조작 방지)
+        tile.addEventListener('click', () => openZoomModal(pcId));
+        tile.addEventListener('dblclick', () => openZoomModal(pcId));
+    }
+}
+
+// ---- 대형 줌 모달 ----
+function openZoomModal(pcId) {
+    currentZoomPcId = pcId;
+    document.getElementById('zoomPcId').innerText = pcId;
+    zoomModal.classList.add('active');
+    zoomStreamImg.src = `/api/stream?pc=${encodeURIComponent(pcId)}&monitor=${selectedMonitorIdx}&t=${Date.now()}`;
+}
+
+function closeZoomModal() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    }
+    currentZoomPcId = null;
+    zoomModal.classList.remove('active');
+    zoomStreamImg.src = '';
+}
+
+function selectMonitor(m) {
+    // 녹화 중이면 기존 녹화 저장 후 전환
+    const wasRecording = (mediaRecorder && mediaRecorder.state === 'recording');
+    if (wasRecording) {
+        stopRecording();
+    }
+
+    selectedMonitorIdx = m;
+    document.querySelectorAll('.monitor-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('monBtn' + m).classList.add('active');
+    if (currentZoomPcId) {
+        zoomStreamImg.src = `/api/stream?pc=${encodeURIComponent(currentZoomPcId)}&monitor=${m}&t=${Date.now()}`;
+    }
+}
+
+// ---- 화면 녹화 기능 (모니터 1, 2, 3 각각 녹화 지원) ----
+function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    if (!zoomStreamImg || !zoomStreamImg.src) return;
+
+    const recCanvas = document.createElement('canvas');
+    recCanvas.width = zoomStreamImg.naturalWidth || 1920;
+    recCanvas.height = zoomStreamImg.naturalHeight || 1080;
+    const recCtx = recCanvas.getContext('2d');
+
+    // 30 FPS 비디오 스트림 캡처
+    const stream = recCanvas.captureStream(30);
+
+    recordDrawInterval = setInterval(() => {
+        try {
+            if (zoomStreamImg && zoomStreamImg.complete && zoomStreamImg.naturalWidth > 0) {
+                recCtx.drawImage(zoomStreamImg, 0, 0, recCanvas.width, recCanvas.height);
+            }
+        } catch(e) {}
+    }, 33);
+
+    recordedChunks = [];
+    let options = { mimeType: 'video/webm;codecs=vp9' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm;codecs=vp8' };
+    }
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+    }
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = {};
+    }
+
+    try {
+        mediaRecorder = new MediaRecorder(stream, options);
+    } catch(e) {
+        mediaRecorder = new MediaRecorder(stream);
+    }
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            recordedChunks.push(e.data);
+        }
+    };
+
+    mediaRecorder.onstop = () => {
+        clearInterval(recordDrawInterval);
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const now = new Date();
+        const timeStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+        const monNum = parseInt(selectedMonitorIdx) + 1;
+        a.download = `다연코퍼레이션_${currentZoomPcId || 'PC'}_모니터${monNum}_${timeStr}.webm`;
+        a.href = url;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    mediaRecorder.start(1000);
+    recordStartTime = Date.now();
+    recordBtn.classList.add('recording');
+    recordIcon.innerText = '🔴';
+    recordText.innerText = 'REC 00:00 (중지 및 저장)';
+
+    recordTimerInterval = setInterval(() => {
+        const diffSec = Math.floor((Date.now() - recordStartTime) / 1000);
+        const min = String(Math.floor(diffSec / 60)).padStart(2, '0');
+        const sec = String(diffSec % 60).padStart(2, '0');
+        recordText.innerText = `REC ${min}:${sec} (중지 및 저장)`;
+    }, 1000);
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    clearInterval(recordTimerInterval);
+    clearInterval(recordDrawInterval);
+    recordBtn.classList.remove('recording');
+    recordIcon.innerText = '🎥';
+    recordText.innerText = '화면 녹화 시작';
+}
+
+// ---- 상대좌표 계산 (줌 터치 레이어) ----
+function getLayerRelCoords(layer, e) {
+    const rect = zoomStreamImg.getBoundingClientRect();
+    const natW = zoomStreamImg.naturalWidth || 2560;
+    const natH = zoomStreamImg.naturalHeight || 1440;
+    const natAR = natW / natH;
+    const boxW = rect.width, boxH = rect.height, boxAR = boxW / boxH;
+    let rW, rH, oX, oY;
+    if (boxAR > natAR) { rH = boxH; rW = boxH * natAR; oX = (boxW - rW) / 2; oY = 0; }
+    else { rW = boxW; rH = boxW / natAR; oX = 0; oY = (boxH - rH) / 2; }
+    let relX = (e.clientX - rect.left - oX) / rW;
+    let relY = (e.clientY - rect.top - oY) / rH;
+    return { relX: Math.max(0, Math.min(1, relX)), relY: Math.max(0, Math.min(1, relY)) };
+}
+
+function showRipple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'click-ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 400);
+}
+
+function sendZoomControl(type, e) {
+    const targetPc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+    const mon = selectedMonitorIdx;
+    const { relX, relY } = getLayerRelCoords(zoomTouchLayer, e);
+    if (type === 'click' || type === 'dblclick' || type === 'rightclick') showRipple(e.clientX, e.clientY);
+    fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=${type}&relX=${relX}&relY=${relY}&monitor=${mon}`);
+}
+
+// 줌 터치 레이어: 마우스 조작 (좌클릭 드래그 / 우클릭)
+let isDragging = false;
+let dragThrottle = null;
+
+zoomTouchLayer.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.button === 0) {
+        isDragging = true;
+        sendZoomControl('mousedown', e);
+    } else if (e.button === 2) {
+        sendZoomControl('rightclick', e);
+    }
+});
+
+zoomTouchLayer.addEventListener('mousemove', e => {
+    if (dragThrottle) return;
+    dragThrottle = setTimeout(() => { dragThrottle = null; }, 25);
+    if (isDragging) {
+        sendZoomControl('mousemove', e);
+    } else {
+        // 원격 PC 마우스 실시간 뺏기 및 커서 이동
+        sendZoomControl('move', e);
+    }
+});
+
+window.addEventListener('mouseup', e => {
+    if (isDragging) {
+        isDragging = false;
+        sendZoomControl('mouseup', e);
+    }
+});
+
+// 줌 터치 레이어: 클릭, 우클릭, 더블클릭
+zoomTouchLayer.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    sendZoomControl('click', e);
+});
+
+zoomTouchLayer.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+});
+
+zoomTouchLayer.addEventListener('dblclick', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    sendZoomControl('dblclick', e);
+});
+
+// 브라우저 기본 우클릭 메뉴 완전 무력화 (웹앱 전체)
+window.oncontextmenu = (e) => { e.preventDefault(); return false; };
+document.oncontextmenu = (e) => { e.preventDefault(); return false; };
+window.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); }, true);
+document.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); }, true);
+window.addEventListener('mousedown', e => { if (e.button === 2) { e.preventDefault(); } }, true);
+window.addEventListener('mouseup', e => { if (e.button === 2) { e.preventDefault(); } }, true);
+
+// ---- 키보드 입력 ----
+window.addEventListener('keydown', e => {
+    if (!zoomModal.classList.contains('active')) return;
+    e.preventDefault();
+    const targetPc = currentZoomPcId || (activePcs[0] ? activePcs[0].id : '');
+    fetch(`/api/control?pc=${encodeURIComponent(targetPc)}&type=keydown&key=${encodeURIComponent(e.key)}&monitor=${selectedMonitorIdx}`);
+});
+
+// ---- 그리드 모드 ----
+function setGrid(mode) {
+    document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    cctvGrid.className = 'cctv-grid';
+    if (mode === 'auto') cctvGrid.classList.add('grid-auto');
+    else if (mode === 20) cctvGrid.classList.add('grid-20');
+    else if (mode === 4) cctvGrid.classList.add('grid-4');
+    else if (mode === 1) cctvGrid.classList.add('grid-1');
+}
+
+window.onload = async () => {
+    await updatePcList();
+    setInterval(updatePcList, 3000);
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "version": 340,
+  "updatedAt": 1787632589031,
+  "updatedDate": "2026-08-25 13:36:29",
+  "files": [
+    "agent.js",
+    "input_ctrl.exe",
+    "fastcap.exe",
+    "audiocap.exe",
+    "NAudio.dll",
+    "다연코퍼레이션.exe",
+    "version.json",
+    "server_ip.txt"
+  ],
+  "description": "다연코퍼레이션 자동 업데이트 패키지 (2026-08-25 13:36:29)"
+}
