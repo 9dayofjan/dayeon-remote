@@ -1907,33 +1907,26 @@ public class RemoteViewerForm : Form {
                         ushort pX = (ushort)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
                         ushort pY = (ushort)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
 
-                        // DayeonClient.cs ExecuteNativeInput 명령 코드와 1:1 정확 매핑
                         if (type == "move" || type == "mousemove") {
-                            // 0x10 = MOUSE_MOVE
                             WriteTcp8888Pkt(0x10, bMon, pX, pY);
                             return;
                         } else if (type == "mousedown" || type == "click") {
-                            // 0x11 = MOUSE_LEFT_DOWN
                             WriteTcp8888Pkt(0x11, bMon, pX, pY);
                             return;
                         } else if (type == "mouseup") {
-                            // 0x12 = MOUSE_LEFT_UP
                             WriteTcp8888Pkt(0x12, bMon, pX, pY);
                             return;
                         } else if (type == "rightclick") {
-                            // 우클릭 = DOWN(0x13) + UP(0x14) 연속 전송
                             WriteTcp8888Pkt(0x13, bMon, pX, pY);
                             WriteTcp8888Pkt(0x14, bMon, pX, pY);
                             return;
                         } else if (type == "doubleclick") {
-                            // 더블클릭 = DOWN+UP 2회
                             WriteTcp8888Pkt(0x11, bMon, pX, pY);
                             WriteTcp8888Pkt(0x12, bMon, pX, pY);
                             WriteTcp8888Pkt(0x11, bMon, pX, pY);
                             WriteTcp8888Pkt(0x12, bMon, pX, pY);
                             return;
                         } else if (type == "wheel") {
-                            // 0x15 = MOUSE_WHEEL (delta in pX)
                             byte[] pkt = new byte[8];
                             pkt[0] = 0x15;
                             pkt[1] = bMon;
