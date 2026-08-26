@@ -1092,8 +1092,12 @@ public class RemoteViewerForm : Form {
                 lock (bmpLock) {
                     if (currentZoomBitmap != null) {
                         Rectangle destRect = GetLetterboxRect(canvasW, canvasH, currentZoomBitmap.Width, currentZoomBitmap.Height);
+                        if (destRect.X > 0 || destRect.Y > 0 || destRect.Width < canvasW || destRect.Height < canvasH) {
+                            g.Clear(Color.FromArgb(11, 19, 43));
+                        }
                         g.DrawImage(currentZoomBitmap, destRect, 0, 0, currentZoomBitmap.Width, currentZoomBitmap.Height, GraphicsUnit.Pixel);
                     } else {
+                        g.Clear(Color.FromArgb(11, 19, 43));
                         using (var font = new Font("Malgun Gothic", 14f, FontStyle.Bold))
                         using (var brush = new SolidBrush(Color.FromArgb(148, 163, 184))) {
                             g.DrawString("원격 PC 화면 로딩 중...", font, brush, new PointF(canvasW / 2 - 80, canvasH / 2 - 10));
@@ -1117,6 +1121,7 @@ public class RemoteViewerForm : Form {
                     }
                 }
             } else {
+                g.Clear(Color.FromArgb(11, 19, 43));
                 // 그리드 관제 모드 (선명하고 깔끔한 Bilinear 렌더링)
                 g.SmoothingMode = SmoothingMode.None;
                 g.InterpolationMode = InterpolationMode.Bilinear;
@@ -2047,7 +2052,14 @@ public class RemoteViewerForm : Form {
 public class DoubleBufferedPanel : Panel {
     public DoubleBufferedPanel() {
         this.DoubleBuffered = true;
-        this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        this.SetStyle(ControlStyles.AllPaintingInWmPaint | 
+                       ControlStyles.UserPaint | 
+                       ControlStyles.OptimizedDoubleBuffer | 
+                       ControlStyles.Opaque, true);
         this.UpdateStyles();
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e) {
+        // 🌟 배경 지우기(WM_ERASEBKGND)를 차단하여 고속 렌더링 시 마우스 커서 사라짐/깜빡임 원천 차단
     }
 }
