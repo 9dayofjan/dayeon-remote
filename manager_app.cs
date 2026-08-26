@@ -1411,9 +1411,84 @@ public class RemoteViewerForm : Form {
 
         var pc = pcList.Find(p => p.Id == pcId);
         string lanIp = GetLanIpForPc(pcId);
+        byte bMon = 0;
+        byte.TryParse(monIdx, out bMon);
 
         Task.Run(async () => {
             while (!token.IsCancellationRequested && isZoomMode && currentZoomPcId == pcId) {
+                // 1. TCP 8888 영상 전용 스트림 (제어 명령은 TCP 8002로 분리)
+                if (lanIp != null) {
+                    TcpClient tcp = null;
+                    try {
+                        tcp = new TcpClient();
+                        tcp.NoDelay = true;
+                        tcp.ReceiveBufferSize = 1024 * 1024 * 4;
+                        var ar = tcp.BeginConnect(lanIp, 8888, null, null);
+                        if (ar.AsyncWaitHandle.WaitOne(500)) {
+                            tcp.EndConnect(ar);
+                            var ns = tcp.GetStream();
+                            ns.ReadTimeout = 3000;
+
+                            byte[] setModeCmd = new byte[8];
+                            setModeCmd[0] = 0x01; // SET_MODE
+                            setModeCmd[1] = bMon;
+                            BitConverter.GetBytes((short)1).CopyTo(setModeCmd, 4); // zoom
+                            ns.Write(setModeCmd, 0, 8);
+
+                            byte[] hdr = new byte[12];
+                            byte[] frameBuf = new byte[1024 * 1024 * 4];
+
+                            while (!token.IsCancellationRequested && isZoomMode && currentZoomPcId == pcId && tcp.Connected) {
+                                int rH = 0;
+                                while (rH < 12) {
+                                    int r = ns.Read(hdr, rH, 12 - rH);
+                                    if (r <= 0) break;
+                                    rH += r;
+                                }
+                                if (rH < 12 || hdr[0] != 'D' || hdr[1] != 'Y' || hdr[2] != '0' || hdr[3] != '1') break;
+
+                                int frameLen = BitConverter.ToInt32(hdr, 8);
+                                if (frameLen <= 0 || frameLen > frameBuf.Length) break;
+
+                                int rP = 0;
+                                while (rP < frameLen) {
+                                    int r = ns.Read(frameBuf, rP, frameLen - rP);
+                                    if (r <= 0) break;
+                                    rP += r;
+                                }
+                                if (rP < frameLen) break;
+
+                                try {
+                                    using (var frameMs = new MemoryStream(frameBuf, 0, frameLen, false))
+                                    using (var temp = Image.FromStream(frameMs, false, false)) {
+                                        Bitmap newBmp = new Bitmap(temp);
+                                        lock (bmpLock) {
+                                            if (currentZoomBitmap != null) currentZoomBitmap.Dispose();
+                                            currentZoomBitmap = newBmp;
+                                            if (!isRenderPending) {
+                                                isRenderPending = true;
+                                                try {
+                                                    renderCanvas.BeginInvoke((Action)(() => {
+                                                        isRenderPending = false;
+                                                        renderCanvas.Invalidate();
+                                                    }));
+                                                } catch { isRenderPending = false; }
+                                            }
+                                        }
+                                        UpdateStreamFps();
+                                    }
+                                } catch { }
+                            }
+                        }
+                    } catch {
+                    } finally {
+                        if (tcp != null) try { tcp.Close(); } catch { }
+                    }
+                }
+
+                if (token.IsCancellationRequested || !isZoomMode || currentZoomPcId != pcId) break;
+
+                // 2. HTTP 스트림 폴백 (agent.js 8001)
                 try {
                     string streamUrl = (lanIp != null) 
                         ? ("http://" + lanIp + ":" + (pc != null && pc.LanPort > 0 ? pc.LanPort : 8001) + "/api/stream?monitor=" + monIdx) 
