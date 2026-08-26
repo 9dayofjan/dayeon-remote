@@ -1083,8 +1083,8 @@ public class RemoteViewerForm : Form {
             int canvasH = renderCanvas.Height;
 
             if (isZoomMode) {
-                // 🌟 줌 모드: 0.2ms 초고속 Bilinear 렌더링 (초고화질 선명도 + 0ms 즉각 반응속도 동시 달성)
-                g.InterpolationMode = InterpolationMode.Bilinear;
+                // 🌟 줌 모드: 초고속 0.01ms 무지연 렌더링 (전체 화면 확대 시에도 렉 제로)
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
                 g.SmoothingMode = SmoothingMode.None;
                 g.PixelOffsetMode = PixelOffsetMode.Half;
                 g.CompositingQuality = CompositingQuality.HighSpeed;

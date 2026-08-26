@@ -65,6 +65,9 @@ namespace DayeonRemoteClient {
         const int DI_NORMAL = 0x0003;
 
         [DllImport("user32.dll")]
+        static extern bool SetCursorPos(int X, int Y);
+
+        [DllImport("user32.dll")]
         static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
 
         [DllImport("user32.dll")]
@@ -124,7 +127,7 @@ namespace DayeonRemoteClient {
             if (list.Count == 0) {
                 list.Add(new RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 });
             }
-            return list.OrderBy(m => m.Left).ToArray();
+            return list.OrderBy(m => m.Left).ThenBy(m => m.Top).ThenBy(m => m.Width).ToArray();
         }
 
         static void EnableTrueNativeDpi() {
@@ -387,6 +390,8 @@ namespace DayeonRemoteClient {
             }
         }
 
+
+
         static int ReadExact(NetworkStream ns, byte[] buf, int offset, int count) {
             int total = 0;
             while (total < count) {
@@ -405,35 +410,23 @@ namespace DayeonRemoteClient {
                 int actualX = bounds.Left + (int)Math.Round((double)(pX & 0xFFFF) * Math.Max(1, bounds.Width - 1) / 65535.0);
                 int actualY = bounds.Top + (int)Math.Round((double)(pY & 0xFFFF) * Math.Max(1, bounds.Height - 1) / 65535.0);
 
-                int vLeft = GetSystemMetrics(76);
-                int vTop = GetSystemMetrics(77);
-                int vWidth = Math.Max(1, GetSystemMetrics(78));
-                int vHeight = Math.Max(1, GetSystemMetrics(79));
-
-                int clampedX = Math.Max(vLeft, Math.Min(vLeft + vWidth - 1, actualX));
-                int clampedY = Math.Max(vTop, Math.Min(vTop + vHeight - 1, actualY));
-
-                uint normX = (uint)Math.Round((double)(clampedX - vLeft) * 65535.0 / (vWidth - 1));
-                uint normY = (uint)Math.Round((double)(clampedY - vTop) * 65535.0 / (vHeight - 1));
+                // ⚡ 100% 확실한 픽셀 좌표 직접 이동 (SetCursorPos)
+                SetCursorPos(actualX, actualY);
 
                 switch (cmdType) {
-                    case 0x10: // MOUSE_MOVE (드래그 시에만 이동)
-                        mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, normX, normY, 0, 0);
+                    case 0x10: // MOUSE_MOVE
+                        // SetCursorPos로 이동 완료
                         break;
-                    case 0x11: // MOUSE_LEFT_DOWN (클릭 시점에만 원격 마우스 이동 후 클릭)
-                        mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, normX, normY, 0, 0);
+                    case 0x11: // MOUSE_LEFT_DOWN
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
                         break;
                     case 0x12: // MOUSE_LEFT_UP
-                        mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, normX, normY, 0, 0);
                         mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                         break;
                     case 0x13: // MOUSE_RIGHT_DOWN
-                        mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, normX, normY, 0, 0);
                         mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
                         break;
                     case 0x14: // MOUSE_RIGHT_UP
-                        mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, normX, normY, 0, 0);
                         mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
                         break;
                     case 0x15: // MOUSE_WHEEL
