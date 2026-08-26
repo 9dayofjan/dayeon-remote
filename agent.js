@@ -297,40 +297,53 @@ console.log('==================================================\n');
                             if (fastcapRawBuf[0] === 0x53 && fastcapRawBuf[1] === 0x43 && fastcapRawBuf[2] === 0x41 && fastcapRawBuf[3] === 0x50) {
                                 const frameLen = fastcapRawBuf.readUInt32LE(8);
                                 if (fastcapRawBuf.length >= 12 + frameLen) {
-                                    latestCapturedFrame = fastcapRawBuf.slice(12, 12 + frameLen);
-                                    fastcapRawBuf = fastcapRawBuf.slice(12 + frameLen);
+                                latestCapturedFrame = fastcapRawBuf.slice(12, 12 + frameLen);
+                                lastFastcapFrameTime = Date.now();
+                                fastcapRawBuf = fastcapRawBuf.slice(12 + frameLen);
 
-                                    // ⚡ 사내 LAN 8001 스트림 클라이언트 즉시 푸시
-                                    if (lanStreamClients.length > 0) {
-                                        const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
-                                        const footer = Buffer.from('\r\n');
-                                        for (let i = lanStreamClients.length - 1; i >= 0; i--) {
-                                            try {
-                                                lanStreamClients[i].res.write(header);
-                                                lanStreamClients[i].res.write(latestCapturedFrame);
-                                                lanStreamClients[i].res.write(footer);
-                                            } catch(e) {
-                                                lanStreamClients.splice(i, 1);
-                                            }
+                                // ⚡ 사내 LAN 8001 스트림 클라이언트 즉시 푸시
+                                if (lanStreamClients.length > 0) {
+                                    const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
+                                    const footer = Buffer.from('\r\n');
+                                    for (let i = lanStreamClients.length - 1; i >= 0; i--) {
+                                        try {
+                                            lanStreamClients[i].res.write(header);
+                                            lanStreamClients[i].res.write(latestCapturedFrame);
+                                            lanStreamClients[i].res.write(footer);
+                                        } catch(e) {
+                                            lanStreamClients.splice(i, 1);
                                         }
                                     }
-                                } else {
-                                    break;
                                 }
                             } else {
-                                fastcapRawBuf = fastcapRawBuf.slice(1);
+                                break;
                             }
+                        } else {
+                            fastcapRawBuf = fastcapRawBuf.slice(1);
                         }
-                    });
+                    }
+                });
 
-                    fastcapDaemon.on('error', () => { fastcapDaemon = null; });
-                    fastcapDaemon.on('exit', () => { fastcapDaemon = null; });
-                } catch(e) {
-                    fastcapDaemon = null;
-                }
+                fastcapDaemon.on('error', () => { fastcapDaemon = null; setTimeout(ensureFastcapDaemon, 150); });
+                fastcapDaemon.on('exit', () => { fastcapDaemon = null; setTimeout(ensureFastcapDaemon, 150); });
+            } catch(e) {
+                fastcapDaemon = null;
+                setTimeout(ensureFastcapDaemon, 200);
             }
         }
     }
+
+    let lastFastcapFrameTime = Date.now();
+    setInterval(() => {
+        ensureFastcapDaemon();
+        if (lanStreamClients.length > 0 && Date.now() - lastFastcapFrameTime > 2500) {
+            if (fastcapDaemon) {
+                try { fastcapDaemon.kill(); } catch(e) {}
+                fastcapDaemon = null;
+            }
+            ensureFastcapDaemon();
+        }
+    }, 1500);
 
     const lanStreamClients = [];
     let activeStreamMonitor = null;
