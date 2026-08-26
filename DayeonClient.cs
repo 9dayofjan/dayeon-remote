@@ -404,18 +404,27 @@ namespace DayeonRemoteClient {
 
         static void ExecuteNativeInput(byte cmdType, byte monIdx, int pX, int pY, byte[] payload, int payloadLen) {
             try {
-                int mIdx = (monIdx >= 0 && monIdx < cachedMonitors.Length) ? monIdx : 0;
-                RECT bounds = cachedMonitors[mIdx];
+                var mons = cachedMonitors;
+                int mIdx = (mons != null && monIdx >= 0 && monIdx < mons.Length) ? monIdx : 0;
+                RECT bounds = (mons != null && mons.Length > 0) ? mons[mIdx] : new RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
 
-                int actualX = bounds.Left + (int)Math.Round((double)(pX & 0xFFFF) * Math.Max(1, bounds.Width - 1) / 65535.0);
-                int actualY = bounds.Top + (int)Math.Round((double)(pY & 0xFFFF) * Math.Max(1, bounds.Height - 1) / 65535.0);
+                // 🌟 마우스 이동 및 클릭 명령(0x10~0x14)일 때만 물리 픽셀 좌표 직접 이동
+                if (cmdType >= 0x10 && cmdType <= 0x14) {
+                    uint uX = (uint)(pX & 0xFFFF);
+                    uint uY = (uint)(pY & 0xFFFF);
 
-                // ⚡ 100% 확실한 픽셀 좌표 직접 이동 (SetCursorPos)
-                SetCursorPos(actualX, actualY);
+                    int actualX = bounds.Left + (int)Math.Round((double)uX * Math.Max(1, bounds.Width - 1) / 65535.0);
+                    int actualY = bounds.Top + (int)Math.Round((double)uY * Math.Max(1, bounds.Height - 1) / 65535.0);
+
+                    // 화면 경계 안전 클램핑
+                    actualX = Math.Max(bounds.Left, Math.Min(bounds.Right - 1, actualX));
+                    actualY = Math.Max(bounds.Top, Math.Min(bounds.Bottom - 1, actualY));
+
+                    SetCursorPos(actualX, actualY);
+                }
 
                 switch (cmdType) {
                     case 0x10: // MOUSE_MOVE
-                        // SetCursorPos로 이동 완료
                         break;
                     case 0x11: // MOUSE_LEFT_DOWN
                         mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
@@ -429,7 +438,7 @@ namespace DayeonRemoteClient {
                     case 0x14: // MOUSE_RIGHT_UP
                         mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
                         break;
-                    case 0x15: // MOUSE_WHEEL
+                    case 0x15: // MOUSE_WHEEL (현재 위치에서 휠만 회전)
                         mouse_event(MOUSEEVENTF_WHEEL, 0, 0, (uint)((short)pX), 0);
                         break;
                     case 0x20: // KEY_DOWN
