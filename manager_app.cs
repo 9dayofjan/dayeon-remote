@@ -1390,8 +1390,29 @@ public class RemoteViewerForm : Form {
         if (!string.IsNullOrEmpty(currentZoomPcId)) {
             var pc = pcList.Find(p => p.Id == currentZoomPcId);
             if (pc != null) pc.ActiveMonitor = monIdx;
-            SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
-            StartZoomStream(currentZoomPcId, monIdx);
+
+            byte bMon = 0;
+            byte.TryParse(monIdx, out bMon);
+
+            // 활성 TCP 8888 스트림에 SET_MONITOR 직통 전송 (재연결 불필요)
+            bool sent = false;
+            lock (zoomTcpLock) {
+                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
+                    try {
+                        byte[] cmd = new byte[8];
+                        cmd[0] = 0x02; // SET_MONITOR
+                        cmd[1] = bMon;
+                        activeZoomTcpStream.Write(cmd, 0, 8);
+                        sent = true;
+                    } catch { }
+                }
+            }
+
+            // TCP 8888 없으면 HTTP 재연결
+            if (!sent) {
+                SendControlFast(currentZoomPcId, "select_monitor", 0, 0, monIdx);
+                StartZoomStream(currentZoomPcId, monIdx);
+            }
         }
     }
 
@@ -1428,6 +1449,10 @@ public class RemoteViewerForm : Form {
                             tcp.EndConnect(ar);
                             var ns = tcp.GetStream();
                             ns.ReadTimeout = 3000;
+                            ns.WriteTimeout = 500;
+
+                            // 제어 명령 직통 전송용 바인딩
+                            lock (zoomTcpLock) { activeZoomTcpStream = ns; }
 
                             byte[] setModeCmd = new byte[8];
                             setModeCmd[0] = 0x01; // SET_MODE
@@ -1482,6 +1507,7 @@ public class RemoteViewerForm : Form {
                         }
                     } catch {
                     } finally {
+                        lock (zoomTcpLock) { activeZoomTcpStream = null; }
                         if (tcp != null) try { tcp.Close(); } catch { }
                     }
                 }
@@ -1855,7 +1881,78 @@ public class RemoteViewerForm : Form {
     private static Dictionary<string, TcpClient> lanTcpClients = new Dictionary<string, TcpClient>();
     private static object lanTcpLock = new object();
 
+    // TCP 8888 바이너리 패킷 전송 헬퍼 (zoomTcpLock 안에서 호출)
+    private void WriteTcp8888Pkt(byte cmd, byte mon, ushort p1, ushort p2) {
+        byte[] pkt = new byte[8];
+        pkt[0] = cmd;
+        pkt[1] = mon;
+        BitConverter.GetBytes(p1).CopyTo(pkt, 4);
+        BitConverter.GetBytes(p2).CopyTo(pkt, 6);
+        activeZoomTcpStream.Write(pkt, 0, 8);
+    }
+
     private void SendControlFast(string pcId, string type, float relX, float relY, string monIdx, string key = null, string msg = null, int delta = 0) {
+        // ⚡ 0. 활성 TCP 8888 직통 전송 (DayeonClient.exe 네이티브 바이너리 프로토콜)
+        if (isZoomMode && currentZoomPcId == pcId) {
+            lock (zoomTcpLock) {
+                if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
+                    try {
+                        byte bMon = 0;
+                        byte.TryParse(monIdx, out bMon);
+                        ushort pX = (ushort)(Math.Max(0f, Math.Min(1f, relX)) * 65535);
+                        ushort pY = (ushort)(Math.Max(0f, Math.Min(1f, relY)) * 65535);
+
+                        // DayeonClient.cs ExecuteNativeInput 명령 코드와 1:1 정확 매핑
+                        if (type == "move" || type == "mousemove") {
+                            // 0x10 = MOUSE_MOVE
+                            WriteTcp8888Pkt(0x10, bMon, pX, pY);
+                            return;
+                        } else if (type == "mousedown" || type == "click") {
+                            // 0x11 = MOUSE_LEFT_DOWN
+                            WriteTcp8888Pkt(0x11, bMon, pX, pY);
+                            return;
+                        } else if (type == "mouseup") {
+                            // 0x12 = MOUSE_LEFT_UP
+                            WriteTcp8888Pkt(0x12, bMon, pX, pY);
+                            return;
+                        } else if (type == "rightclick") {
+                            // 우클릭 = DOWN(0x13) + UP(0x14) 연속 전송
+                            WriteTcp8888Pkt(0x13, bMon, pX, pY);
+                            WriteTcp8888Pkt(0x14, bMon, pX, pY);
+                            return;
+                        } else if (type == "doubleclick") {
+                            // 더블클릭 = DOWN+UP 2회
+                            WriteTcp8888Pkt(0x11, bMon, pX, pY);
+                            WriteTcp8888Pkt(0x12, bMon, pX, pY);
+                            WriteTcp8888Pkt(0x11, bMon, pX, pY);
+                            WriteTcp8888Pkt(0x12, bMon, pX, pY);
+                            return;
+                        } else if (type == "wheel") {
+                            // 0x15 = MOUSE_WHEEL (delta in pX)
+                            byte[] pkt = new byte[8];
+                            pkt[0] = 0x15;
+                            pkt[1] = bMon;
+                            BitConverter.GetBytes((short)delta).CopyTo(pkt, 4);
+                            activeZoomTcpStream.Write(pkt, 0, 8);
+                            return;
+                        } else if (type == "keydown") {
+                            ushort vk = 0;
+                            Keys k;
+                            if (Enum.TryParse<Keys>(key, out k)) vk = (ushort)k;
+                            WriteTcp8888Pkt(0x20, bMon, vk, 0);
+                            return;
+                        } else if (type == "keyup") {
+                            ushort vk = 0;
+                            Keys k;
+                            if (Enum.TryParse<Keys>(key, out k)) vk = (ushort)k;
+                            WriteTcp8888Pkt(0x21, bMon, vk, 0);
+                            return;
+                        }
+                    } catch { }
+                }
+            }
+        }
+
         Task.Run(() => {
             try {
                 var pc = pcList.Find(p => p.Id == pcId);
