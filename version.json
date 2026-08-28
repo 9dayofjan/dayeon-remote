@@ -1,7 +1,7 @@
 {
-  "version": 720,
-  "updatedAt": 1787800000000,
-  "updatedDate": "2026-08-26 10:25:00",
+  "version": 722,
+  "updatedAt": 1787990400000,
+  "updatedDate": "2026-08-28 20:00:00",
   "files": [
     "fastcap.exe",
     "다연원격_클라이언트.exe",
@@ -13,5 +13,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "다연코퍼레이션 원격 제어 패키지 (원격 PC 전용 클라이언트)"
+  "description": "다연코퍼레이션 원격 제어 패키지 (업데이트 다운로드 타임아웃 무한대기 버그 수정, 2026-08-28)"
 }

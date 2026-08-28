@@ -565,6 +565,9 @@ console.log('==================================================\n');
             });
         });
         req.on('error', () => {});
+        // 🌟 timeout 옵션은 이벤트만 발생시킬 뿐 소켓을 자동으로 끊지 않으므로,
+        // 핸들러 없이 방치하면 LAN/클라우드 연결이 멎었을 때 요청이 무한 대기 상태가 된다.
+        req.on('timeout', () => { req.destroy(new Error('version check timeout')); });
         req.end();
     }
 
@@ -572,6 +575,14 @@ console.log('==================================================\n');
         return new Promise((resolve, reject) => {
             const tempPath = path.join(destDir, fileName);
             const fileStream = fs.createWriteStream(tempPath);
+            let settled = false;
+            const fail = (err) => {
+                if (settled) return;
+                settled = true;
+                fileStream.close();
+                try { fs.unlinkSync(tempPath); } catch(e) {}
+                reject(err);
+            };
             const req = netModule.request({
                 hostname: targetHost,
                 port: targetPort,
@@ -581,9 +592,7 @@ console.log('==================================================\n');
                 timeout: 15000
             }, (res) => {
                 if (res.statusCode !== 200) {
-                    fileStream.close();
-                    try { fs.unlinkSync(tempPath); } catch(e) {}
-                    return reject(new Error('Download failed: ' + res.statusCode));
+                    return fail(new Error('Download failed: ' + res.statusCode));
                 }
                 const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
                 let curBytes = 0;
@@ -591,16 +600,19 @@ console.log('==================================================\n');
                     curBytes += chunk.length;
                     if (onProgress) onProgress(chunk.length, curBytes, totalBytes);
                 });
+                // 응답을 받은 뒤 스트리밍 도중 멈추는 경우도 대비 (구간 무응답 감지)
+                res.on('timeout', () => fail(new Error('Download stalled: ' + fileName)));
                 res.pipe(fileStream);
                 fileStream.on('finish', () => {
+                    if (settled) return;
+                    settled = true;
                     fileStream.close(() => resolve(tempPath));
                 });
             });
-            req.on('error', (err) => {
-                fileStream.close();
-                try { fs.unlinkSync(tempPath); } catch(e) {}
-                reject(err);
-            });
+            req.on('error', (err) => fail(err));
+            // 🌟 연결/응답이 모두 멈춘 무응답 상태를 실제로 끊어서 Promise.all이
+            // 영원히 대기하지 않도록 한다. (이것이 위젯이 [0%]에서 멈추는 근본 원인)
+            req.on('timeout', () => fail(new Error('Download timeout: ' + fileName)));
             req.end();
         });
     }
@@ -705,6 +717,14 @@ console.log('==================================================\n');
                 process.exit(0);
             }, 300);
         } catch(e) {
+            // 🌟 다운로드 타임아웃 등으로 실패했을 때 위젯을 [0%]에 방치하지 않고
+            // 실패 상태를 표시한 뒤 자동으로 닫아, 다음 재시도가 가능하도록 한다.
+            console.error('[❌ 업데이트 실패]', e && e.message);
+            setWidgetProgress(0, `⚠️ 업데이트 실패 (네트워크 지연): 잠시 후 재시도합니다.`);
+            if (updateWidgetProc) {
+                try { updateWidgetProc.stdin.write('exit\n'); } catch(err) {}
+                setTimeout(() => { try { updateWidgetProc.kill(); } catch(err) {} }, 3000);
+            }
             isUpdating = false;
         }
     }
