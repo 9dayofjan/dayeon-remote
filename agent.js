@@ -1,5 +1,6 @@
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const { execFile, spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -25,28 +26,8 @@ lockServer.once('error', (err) => {
 });
 lockServer.listen(AGENT_LOCK_PORT, '127.0.0.1');
 
-// 잔존 캡처 프로세스 정리 및 8001/8002번 사내 기가비트 LAN 포트 방화벽 개방
+// 잔존 캡처 프로세스 정리
 try { execSync('taskkill /F /IM fastcap.exe /IM audiocap.exe /IM input_ctrl.exe 2>nul'); } catch(e) {}
-try { execSync('netsh advfirewall firewall add rule name="DayeonLAN" dir=in action=allow protocol=TCP localport=8001,8002 2>nul'); } catch(e) {}
-try { execSync('netsh advfirewall firewall set rule name="DayeonLAN" new enable=yes 2>nul'); } catch(e) {}
-try { execSync('powershell -Command "New-NetFirewallRule -DisplayName DayeonLAN -Direction Inbound -LocalPort 8001,8002 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue" 2>nul'); } catch(e) {}
-
-// 🧹 원격 PC(클라이언트)에 존재하는 관리자 프로그램(.exe) 잔존 파일 완전 삭제
-try {
-    const userDesk = path.join(process.env.USERPROFILE || 'C:\\Users\\user', 'Desktop');
-    const pubDesk = 'C:\\Users\\Public\\Desktop';
-    const mgrNames = ['다연코퍼레이션 관리자.exe', '다연원격_관리자.exe', 'DayeonManager.exe'];
-    for (const name of mgrNames) {
-        const p1 = path.join(__dirname, name);
-        const p2 = path.join(__dirname, '..', name);
-        const p3 = path.join(userDesk, name);
-        const p4 = path.join(pubDesk, name);
-        if (fs.existsSync(p1)) { try { fs.unlinkSync(p1); } catch(e) {} }
-        if (fs.existsSync(p2)) { try { fs.unlinkSync(p2); } catch(e) {} }
-        if (fs.existsSync(p3)) { try { fs.unlinkSync(p3); } catch(e) {} }
-        if (fs.existsSync(p4)) { try { fs.unlinkSync(p4); } catch(e) {} }
-    }
-} catch(e) {}
 
 // 🌟 윈도우 부팅 시 다연코퍼레이션 100% 자동 실행 등록
 function ensureAutoStart() {
@@ -80,6 +61,42 @@ function showNoticeToast(msg, duration = 3000) {
     }
 }
 
+// 🌟 60 FPS 네이티브 초고속 화면 스트리밍 엔진(DayeonClient / 포트 8888) 자동 상주 보장
+function ensureDayeonNativeServer() {
+    const candidates = [
+        path.join(__dirname, '다연원격_클라이언트.exe'),
+        path.join(__dirname, 'DayeonClient.exe'),
+        path.join(__dirname, '..', '다연원격_클라이언트.exe'),
+        path.join(__dirname, '..', 'DayeonClient.exe')
+    ];
+    let exeToRun = null;
+    for (const p of candidates) {
+        if (fs.existsSync(p)) { exeToRun = p; break; }
+    }
+    if (!exeToRun) return;
+
+    const testSock = new net.Socket();
+    testSock.setTimeout(300);
+    testSock.on('connect', () => { testSock.destroy(); });
+    testSock.on('error', () => {
+        testSock.destroy();
+        try {
+            console.log('🚀 [60 FPS 네이티브 엔진] 백그라운드 자동 기동:', exeToRun);
+            spawn(exeToRun, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        } catch(e) {}
+    });
+    testSock.on('timeout', () => {
+        testSock.destroy();
+        try {
+            console.log('🚀 [60 FPS 네이티브 엔진] 백그라운드 자동 기동:', exeToRun);
+            spawn(exeToRun, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        } catch(e) {}
+    });
+    testSock.connect(8888, '127.0.0.1');
+}
+setInterval(ensureDayeonNativeServer, 5000);
+ensureDayeonNativeServer();
+
 // 🌟 시작 시 업데이트 완료 토스트 자동 출력
 const updateFlagFile = path.join(__dirname, 'update_temp_done.flag');
 if (fs.existsSync(updateFlagFile)) {
@@ -95,27 +112,35 @@ if (fs.existsSync(updateFlagFile)) {
     } catch(e) {}
 }
 
-let myNickname = '';
-try {
-    const nickFile = path.join(__dirname, 'nickname.txt');
-    if (fs.existsSync(nickFile)) myNickname = fs.readFileSync(nickFile, 'utf8').trim();
-} catch(e) {}
-
-// PC 고유 식별자 생성 (호스트네임 + IP 끝자리로 복제 PC 중복 100% 방지)
+// PC 고유 식별자 생성 (가상 어댑터 필터링 & 사내 물리 IP 우선 매칭)
 const baseHostname = process.env.COMPUTERNAME || os.hostname() || 'PC';
 const interfaces = os.networkInterfaces();
 let localIpSuffix = '';
-let myLanIp = '127.0.0.1';
-for (const k in interfaces) {
-    for (const iface of interfaces[k]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-            myLanIp = iface.address;
-            const segs = iface.address.split('.');
-            localIpSuffix = segs[segs.length - 1];
-            break;
+let localFullIp = '127.0.0.1';
+
+const virtualAdapterKeywords = ['vethernet', 'virtual', 'vmware', 'wsl', 'loopback', 'tap', 'zerotier', 'tailscale', 'pseudo'];
+const candidateIps = [];
+
+for (const name in interfaces) {
+    const isVirtual = virtualAdapterKeywords.some(k => name.toLowerCase().includes(k));
+    for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal && iface.address !== '127.0.0.1') {
+            candidateIps.push({ ip: iface.address, isVirtual, name });
         }
     }
-    if (localIpSuffix) break;
+}
+
+// 1순위: 가상 어댑터가 아니면서 사내망 대역(172.30.x, 192.168.x, 10.x)인 IP
+let bestIface = candidateIps.find(c => !c.isVirtual && (c.ip.startsWith('172.30.') || c.ip.startsWith('192.168.') || c.ip.startsWith('10.')));
+// 2순위: 기타 물리 어댑터 IPv4
+if (!bestIface) bestIface = candidateIps.find(c => !c.isVirtual);
+// 3순위: 전체 중 첫 번째 IPv4
+if (!bestIface && candidateIps.length > 0) bestIface = candidateIps[0];
+
+if (bestIface) {
+    localFullIp = bestIface.ip;
+    const segs = localFullIp.split('.');
+    localIpSuffix = segs[segs.length - 1];
 }
 const pcId = localIpSuffix ? `${baseHostname}_${localIpSuffix}` : baseHostname;
 
@@ -123,20 +148,20 @@ let ipConfigFile = path.join(__dirname, 'server_ip.txt');
 if (!fs.existsSync(ipConfigFile) && fs.existsSync(path.join(__dirname, '..', 'server_ip.txt'))) {
     ipConfigFile = path.join(__dirname, '..', 'server_ip.txt');
 }
-let savedIp = '172.30.1.90';
+let savedIp = 'https://dayeon-remote.onrender.com';
 if (fs.existsSync(ipConfigFile)) {
     try {
         const content = fs.readFileSync(ipConfigFile, 'utf8').trim();
-        if (content) savedIp = content;
+        if (content && content.includes('dayeon-remote')) savedIp = content;
     } catch(e) {}
 } else {
     try { fs.writeFileSync(ipConfigFile, savedIp, 'utf8'); } catch(e) {}
 }
 
 let input = savedIp;
-let isHttps = false;
-let targetHost = '172.30.1.90';
-let targetPort = 8080;
+let isHttps = true;
+let targetHost = 'dayeon-remote.onrender.com';
+let targetPort = 443;
 
 if (input.startsWith('https://')) {
     isHttps = true;
@@ -169,9 +194,10 @@ console.log('==================================================\n');
 
     let inputCtrlProcess = null;
     let latestRemoteClipboardB64 = '';
+    let isCurrentZoomFocused = false;
 
     function ensureInputCtrlDaemon() {
-        if (!inputCtrlProcess || inputCtrlProcess.killed) {
+        if (!inputCtrlProcess || inputCtrlProcess.killed || inputCtrlProcess.exitCode !== null || !inputCtrlProcess.stdin || inputCtrlProcess.stdin.destroyed) {
             const inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
             if (fs.existsSync(inputCtrlPath)) {
                 try {
@@ -259,14 +285,226 @@ console.log('==================================================\n');
     }
     connectStreamUpload();
 
-    let isCurrentZoomFocused = false;
-    var lastFastcapFrameTime = Date.now();
+    const LAN_PORT = 8001;
+    const lanWsClients = [];
+    let lanServer = null;
+
+    function makeWsBinaryFrame(buffer) {
+        const len = buffer.length;
+        let header;
+        if (len < 126) {
+            header = Buffer.from([0x82, len]);
+        } else if (len <= 0xFFFF) {
+            header = Buffer.alloc(4);
+            header[0] = 0x82;
+            header[1] = 126;
+            header.writeUInt16BE(len, 2);
+        } else {
+            header = Buffer.alloc(10);
+            header[0] = 0x82;
+            header[1] = 127;
+            header.writeBigUInt64BE(BigInt(len), 2);
+        }
+        return Buffer.concat([header, buffer]);
+    }
+
+    let globalAgentWsSocket = null;
+
+    function makeWsClientBinaryFrame(buffer) {
+        const len = buffer.length;
+        const mask = crypto.randomBytes(4);
+        let header;
+        if (len < 126) {
+            header = Buffer.alloc(6);
+            header[0] = 0x82;
+            header[1] = 0x80 | len;
+            mask.copy(header, 2);
+        } else if (len <= 0xFFFF) {
+            header = Buffer.alloc(8);
+            header[0] = 0x82;
+            header[1] = 0x80 | 126;
+            header.writeUInt16BE(len, 2);
+            mask.copy(header, 4);
+        } else {
+            header = Buffer.alloc(14);
+            header[0] = 0x82;
+            header[1] = 0x80 | 127;
+            header.writeBigUInt64BE(BigInt(len), 2);
+            mask.copy(header, 10);
+        }
+        const maskedPayload = Buffer.allocUnsafe(len);
+        for (let i = 0; i < len; i++) {
+            maskedPayload[i] = buffer[i] ^ mask[i % 4];
+        }
+        return Buffer.concat([header, maskedPayload]);
+    }
+
+    const lanStreamClients = [];
+    const latestMonitorFrames = {};
+
+    try {
+        lanServer = http.createServer((req, res) => {
+            const urlObj = new URL(req.url, `http://localhost:${LAN_PORT}`);
+            const pathname = urlObj.pathname;
+
+            if (pathname === '/api/stream') {
+                const reqMon = urlObj.searchParams.get('monitor') || targetMonitor || '0';
+                if (reqMon !== fastcapMonitor) {
+                    targetMonitor = reqMon;
+                    fastcapMonitor = reqMon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                }
+                applyStreamFocusState(true);
+
+                res.writeHead(200, {
+                    'Content-Type': 'multipart/x-mixed-replace; boundary=--frame',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Connection': 'close',
+                    'Pragma': 'no-cache'
+                });
+
+                const sc = { res, monitor: reqMon };
+                lanStreamClients.push(sc);
+
+                if (latestCapturedFrame) {
+                    try {
+                        res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
+                        res.write(latestCapturedFrame);
+                        res.write('\r\n');
+                    } catch(e) {}
+                }
+
+                req.on('close', () => {
+                    const idx = lanStreamClients.indexOf(sc);
+                    if (idx !== -1) lanStreamClients.splice(idx, 1);
+                    if (lanStreamClients.length === 0 && lanWsClients.length === 0) {
+                        applyStreamFocusState(false);
+                    }
+                });
+                return;
+            }
+
+            if (pathname === '/api/snapshot') {
+                const reqMon = urlObj.searchParams.get('monitor') || targetMonitor || '0';
+                if (reqMon !== fastcapMonitor) {
+                    targetMonitor = reqMon;
+                    fastcapMonitor = reqMon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                }
+                const frame = latestMonitorFrames[reqMon] || latestCapturedFrame;
+                if (frame) {
+                    res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
+                    res.end(frame);
+                } else {
+                    captureScreen(reqMon, (freshFrame) => {
+                        if (freshFrame) {
+                            const b = Buffer.isBuffer(freshFrame) ? freshFrame : Buffer.from(freshFrame, 'base64');
+                            res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Connection': 'close' });
+                            res.end(b);
+                        } else {
+                            res.writeHead(404); res.end();
+                        }
+                    });
+                }
+                return;
+            }
+
+            if (pathname === '/api/control') {
+                const type = urlObj.searchParams.get('type');
+                const relX = urlObj.searchParams.get('relX');
+                const relY = urlObj.searchParams.get('relY');
+                const monitor = urlObj.searchParams.get('monitor');
+                const key = urlObj.searchParams.get('key');
+                const msg = urlObj.searchParams.get('msg');
+                const delta = urlObj.searchParams.get('delta');
+
+                executeControlNative({ type, relX, relY, monitorIdx: monitor, key, msg, delta });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ok' }));
+                return;
+            }
+
+            res.writeHead(404); res.end();
+        });
+
+        lanServer.on('upgrade', (req, socket, head) => {
+            const key = req.headers['sec-websocket-key'];
+            if (!key) { socket.destroy(); return; }
+
+            const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+            const responseHeaders = [
+                'HTTP/1.1 101 Switching Protocols',
+                'Upgrade: websocket',
+                'Connection: Upgrade',
+                `Sec-WebSocket-Accept: ${accept}`,
+                '\r\n'
+            ].join('\r\n');
+
+            socket.setNoDelay(true);
+            socket.write(responseHeaders);
+
+            const client = { socket };
+            lanWsClients.push(client);
+
+            applyStreamFocusState(true);
+
+            if (latestCapturedFrame) {
+                try { socket.write(makeWsBinaryFrame(latestCapturedFrame)); } catch(e) {}
+            }
+
+            socket.on('data', (data) => {
+                if (data.length > 0) {
+                    const op = data[0] & 0x0F;
+                    if (op === 0x08) { socket.end(); return; }
+                    if (op === 0x01) {
+                        try {
+                            const text = decodeWsTextSimple(data);
+                            if (text) {
+                                const cmd = JSON.parse(text);
+                                if (cmd.type === 'select_monitor' && cmd.monitor !== undefined) {
+                                    targetMonitor = cmd.monitor.toString();
+                                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                        fastcapMonitor = targetMonitor;
+                                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                                    }
+                                } else {
+                                    executeControlNative(cmd);
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+
+            socket.on('close', () => {
+                const idx = lanWsClients.indexOf(client);
+                if (idx !== -1) lanWsClients.splice(idx, 1);
+                if (lanWsClients.length === 0) applyStreamFocusState(false);
+            });
+
+            socket.on('error', () => { socket.destroy(); });
+        });
+
+        lanServer.listen(LAN_PORT, '0.0.0.0', () => {
+            console.log(`⚡ [LAN 직통] 사내 기가비트 0ms 고속 스트리밍 서버 가동 (Port: ${LAN_PORT})`);
+        });
+        lanServer.on('error', () => {});
+    } catch(e) {}
 
     function applyStreamFocusState(focused) {
-        isCurrentZoomFocused = focused;
+        if (isCurrentZoomFocused === focused && lanWsClients.length === 0) return;
+        isCurrentZoomFocused = focused || (lanWsClients.length > 0);
         if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
             try {
-                fastcapDaemon.stdin.write('fps 60\nquality 88\n');
+                if (isCurrentZoomFocused) {
+                    fastcapDaemon.stdin.write('fps 60\nquality 70\n');
+                } else {
+                    fastcapDaemon.stdin.write('fps 12\nquality 60\n');
+                }
             } catch(e) {}
         }
     }
@@ -279,9 +517,10 @@ console.log('==================================================\n');
                     fastcapDaemon = spawn(fastcapPath, ['daemon', targetMonitor || '0'], { stdio: ['pipe', 'pipe', 'ignore'] });
                     fastcapMonitor = targetMonitor || '0';
 
-                    // 60 FPS 초고속 캡처 항시 가동 (88% 초고화질 무지연)
-                    try { fastcapDaemon.stdin.write('fps 60\nquality 88\n'); } catch(e) {}
+                    // 초기 상태 적용 (12 FPS 기본)
+                    try { fastcapDaemon.stdin.write('fps 12\nquality 60\n'); } catch(e) {}
 
+                    let daemonBuf = Buffer.alloc(0);
                     fastcapDaemon.stdout.on('data', (chunk) => {
                         if (streamUploadReq && !streamUploadReq.destroyed && !streamUploadReq.writableEnded) {
                             try {
@@ -290,206 +529,113 @@ console.log('==================================================\n');
                                 streamUploadReq = null;
                                 scheduleStreamReconnect();
                             }
+                        } else {
+                            scheduleStreamReconnect();
                         }
 
-                        // ⚡ 최신 캡처 프레임을 버퍼에 실시간 파싱하여 LAN 직통 서버에 즉시 공급
-                        fastcapRawBuf = Buffer.concat([fastcapRawBuf, chunk]);
-                        while (fastcapRawBuf.length >= 12) {
-                            if (fastcapRawBuf[0] === 0x53 && fastcapRawBuf[1] === 0x43 && fastcapRawBuf[2] === 0x41 && fastcapRawBuf[3] === 0x50) {
-                                const frameLen = fastcapRawBuf.readUInt32LE(8);
-                                if (fastcapRawBuf.length >= 12 + frameLen) {
-                                    latestCapturedFrame = fastcapRawBuf.slice(12, 12 + frameLen);
-                                    lastFastcapFrameTime = Date.now();
-                                    fastcapRawBuf = fastcapRawBuf.slice(12 + frameLen);
+                        // 항상 최신 캡처 프레임을 파싱하여 latestCapturedFrame 갱신 (0.2ms LAN 스냅샷 완벽 대응)
+                        daemonBuf = Buffer.concat([daemonBuf, chunk]);
+                        while (daemonBuf.length >= 12) {
+                            const magicIdx = daemonBuf.indexOf(Buffer.from([0x53, 0x43, 0x41, 0x50]));
+                            if (magicIdx === -1) {
+                                if (daemonBuf.length > 3) daemonBuf = daemonBuf.slice(daemonBuf.length - 3);
+                                break;
+                            }
+                            if (magicIdx > 0) daemonBuf = daemonBuf.slice(magicIdx);
+                            if (daemonBuf.length < 12) break;
 
-                                    // ⚡ 사내 LAN 8001 스트림 클라이언트 즉시 푸시
-                                    if (lanStreamClients.length > 0) {
-                                        const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
-                                        const footer = Buffer.from('\r\n');
-                                        for (let i = lanStreamClients.length - 1; i >= 0; i--) {
-                                            try {
-                                                lanStreamClients[i].res.write(header);
-                                                lanStreamClients[i].res.write(latestCapturedFrame);
-                                                lanStreamClients[i].res.write(footer);
-                                            } catch(e) {
-                                                lanStreamClients.splice(i, 1);
-                                            }
-                                        }
+                            const monIdx = daemonBuf.readUInt32LE(4);
+                            const len = daemonBuf.readUInt32LE(8);
+                            if (len <= 0 || len > 10 * 1024 * 1024) {
+                                daemonBuf = daemonBuf.slice(4);
+                                continue;
+                            }
+                            if (daemonBuf.length < 12 + len) break;
+
+                            const jpegBuf = daemonBuf.slice(12, 12 + len);
+                            daemonBuf = daemonBuf.slice(12 + len);
+                            latestCapturedFrame = jpegBuf;
+                            latestMonitorFrames[monIdx.toString()] = jpegBuf;
+                            fastcapMonitor = monIdx.toString();
+
+                            // 0. 사내 LAN HTTP MJPEG 스트림 클라이언트 (60 FPS 초고속 방송)
+                            if (lanStreamClients.length > 0) {
+                                for (const sc of lanStreamClients) {
+                                    if (sc.res && !sc.res.writableEnded) {
+                                        try {
+                                            sc.res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpegBuf.length}\r\n\r\n`);
+                                            sc.res.write(jpegBuf);
+                                            sc.res.write('\r\n');
+                                        } catch(e) {}
                                     }
-                                } else {
-                                    break;
                                 }
-                            } else {
-                                fastcapRawBuf = fastcapRawBuf.slice(1);
+                            }
+
+                            // 1. 사내 LAN 클라이언트 0ms 브로드캐스트
+                            if (lanWsClients.length > 0) {
+                                const wsFrame = makeWsBinaryFrame(jpegBuf);
+                                for (const c of lanWsClients) {
+                                    if (c.socket && !c.socket.destroyed && c.socket.writable) {
+                                        if (c.socket.writableLength && c.socket.writableLength > 64 * 1024) continue;
+                                        try { c.socket.write(wsFrame); } catch(e) {}
+                                    }
+                                }
+                            }
+
+                            // 2. 클라우드 관리자 WebSocket 실시간 바이너리 직통 전송 (60 FPS)
+                            if (globalAgentWsSocket && !globalAgentWsSocket.destroyed && globalAgentWsSocket.writable) {
+                                if (!globalAgentWsSocket.writableLength || globalAgentWsSocket.writableLength < 64 * 1024) {
+                                    try { globalAgentWsSocket.write(makeWsClientBinaryFrame(jpegBuf)); } catch(e) {}
+                                }
                             }
                         }
                     });
 
-                    fastcapDaemon.on('error', () => { fastcapDaemon = null; setTimeout(ensureFastcapDaemon, 150); });
-                    fastcapDaemon.on('exit', () => { fastcapDaemon = null; setTimeout(ensureFastcapDaemon, 150); });
+                    fastcapDaemon.on('error', () => { fastcapDaemon = null; });
+                    fastcapDaemon.on('exit', () => { fastcapDaemon = null; });
                 } catch(e) {
                     fastcapDaemon = null;
-                    setTimeout(ensureFastcapDaemon, 200);
                 }
             }
         }
     }
 
-    setInterval(() => {
-        ensureFastcapDaemon();
-        if (lanStreamClients.length > 0 && Date.now() - lastFastcapFrameTime > 2500) {
-            if (fastcapDaemon) {
-                try { fastcapDaemon.kill(); } catch(e) {}
-                fastcapDaemon = null;
+    let nativeClientProcess = null;
+    function ensureNativeClientDaemon() {
+        if (!nativeClientProcess || nativeClientProcess.killed) {
+            const clientExePath = path.join(__dirname, '다연원격_클라이언트.exe');
+            if (fs.existsSync(clientExePath)) {
+                try {
+                    nativeClientProcess = spawn(clientExePath, [], { detached: true, stdio: 'ignore' });
+                    nativeClientProcess.unref();
+                    nativeClientProcess.on('error', () => { nativeClientProcess = null; });
+                    nativeClientProcess.on('exit', () => { nativeClientProcess = null; });
+                } catch(e) {
+                    nativeClientProcess = null;
+                }
             }
-            ensureFastcapDaemon();
-        }
-    }, 1500);
-
-    const lanStreamClients = [];
-    let activeStreamMonitor = null;
-
-    function setFastcapMonitor(mon, isExplicitUserSwitch) {
-        if (mon === undefined || mon === null) return;
-        const targetMon = mon.toString();
-        
-        if (isExplicitUserSwitch) {
-            activeStreamMonitor = targetMon;
-        }
-
-        // 스트리밍 중일 때 외부의 비명시적(스냅샷, 하트비트) 모니터 전환 요청은 완벽 차단!
-        if (!isExplicitUserSwitch && activeStreamMonitor !== null) {
-            return;
-        }
-
-        if (fastcapMonitor !== targetMon) {
-            fastcapMonitor = targetMon;
-            targetMonitor = targetMon;
-            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
-                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
-            }
-            latestCapturedFrame = null;
         }
     }
-
-    // ⚡ 사내 초고속 직통 LAN 서버 (0.1ms 무지연 캡처 및 즉각 제어)
-    try {
-        const lanServer = http.createServer((lReq, lRes) => {
-            const lUrl = new URL(lReq.url, 'http://127.0.0.1:8001');
-            lRes.setHeader('Access-Control-Allow-Origin', '*');
-            lRes.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-
-            // 🌟 1. 사내 기가비트 연속 MJPEG 실시간 스트림 (단 1회 연결로 60 FPS 무한 무지연 푸시)
-            if (lUrl.pathname === '/api/stream') {
-                const mon = lUrl.searchParams.get('monitor') || '0';
-                setFastcapMonitor(mon, true);
-
-                lRes.writeHead(200, {
-                    'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Connection': 'close'
-                });
-
-                const clientObj = { res: lRes, mon: mon };
-                lanStreamClients.push(clientObj);
-                lReq.on('close', () => {
-                    const idx = lanStreamClients.indexOf(clientObj);
-                    if (idx !== -1) lanStreamClients.splice(idx, 1);
-                    if (lanStreamClients.length === 0) activeStreamMonitor = null;
-                });
-                return;
-            }
-
-            if (lUrl.pathname === '/api/snapshot') {
-                const mon = lUrl.searchParams.get('monitor') || '0';
-                setFastcapMonitor(mon, false);
-
-                if (latestCapturedFrame && latestCapturedFrame.length > 100) {
-                    lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': latestCapturedFrame.length });
-                    lRes.end(latestCapturedFrame);
-                } else {
-                    captureScreen(mon, (imgBuf) => {
-                        if (imgBuf) {
-                            const buf = Buffer.isBuffer(imgBuf) ? imgBuf : Buffer.from(imgBuf, 'base64');
-                            lRes.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length });
-                            lRes.end(buf);
-                        } else {
-                            lRes.writeHead(503);
-                            lRes.end('No frame');
-                        }
-                    });
-                }
-                return;
-            }
-
-            if (lUrl.pathname === '/api/control') {
-                const type = lUrl.searchParams.get('type');
-                const relX = lUrl.searchParams.get('relX') || '0';
-                const relY = lUrl.searchParams.get('relY') || '0';
-                const key = lUrl.searchParams.get('key') || '';
-                const monitorIdx = lUrl.searchParams.get('monitor') || '0';
-                const msg = lUrl.searchParams.get('msg') || key || '';
-                const delta = lUrl.searchParams.get('delta') || '-120';
-                
-                if (type === 'select_monitor' || type === 'monitor') {
-                    setFastcapMonitor(monitorIdx, true);
-                }
-
-                executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
-                lRes.writeHead(200, { 'Content-Type': 'application/json' });
-                lRes.end(JSON.stringify({ status: 'ok' }));
-                return;
-            }
-
-            lRes.writeHead(404);
-            lRes.end();
-        });
-
-        lanServer.on('error', () => {});
-        lanServer.listen(8001, '0.0.0.0', () => {});
-    } catch(e) {}
-
-    // ⚡ 사내 직통 TCP 컨트롤 서버 (Port 8002 - 0.001ms 즉시 반응)
-    try {
-        const netMod = require('net');
-        const tcpControlServer = netMod.createServer((socket) => {
-            socket.setNoDelay(true);
-            let buf = '';
-            socket.on('data', (chunk) => {
-                buf += chunk.toString('utf8');
-                let idx;
-                while ((idx = buf.indexOf('\n')) !== -1) {
-                    const line = buf.slice(0, idx).trim();
-                    buf = buf.slice(idx + 1);
-                    if (line) {
-                        const parts = line.split('\t');
-                        const type = parts[0];
-                        const relX = parts[1] || '0';
-                        const relY = parts[2] || '0';
-                        const monitorIdx = parts[3] || '0';
-                        const key = parts[4] || '';
-                        const delta = parts[5] || '-120';
-                        const msg = parts[6] || key || '';
-                        if (type === 'select_monitor' || type === 'monitor') {
-                            setFastcapMonitor(monitorIdx, true);
-                        }
-                        executeControlNative(type, relX, relY, key, monitorIdx, msg, delta);
-                    }
-                }
-            });
-        });
-        tcpControlServer.on('error', () => {});
-        tcpControlServer.listen(8002, '0.0.0.0', () => {});
-    } catch(e) {}
 
     ensureFastcapDaemon();
+    ensureNativeClientDaemon();
+    setInterval(() => {
+        ensureInputCtrlDaemon();
+        ensureFastcapDaemon();
+        ensureNativeClientDaemon();
+    }, 3000);
 
     function captureScreen(monitorIdx, callback) {
         ensureFastcapDaemon();
-        setFastcapMonitor(monitorIdx, false);
-        if (latestCapturedFrame) {
-            callback(latestCapturedFrame);
-            return;
+        if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+            if (fastcapMonitor !== monitorIdx.toString()) {
+                fastcapMonitor = monitorIdx.toString();
+                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+            }
+            if (latestCapturedFrame) {
+                callback(latestCapturedFrame);
+                return;
+            }
         }
 
         const mKey = (monitorIdx !== undefined && monitorIdx !== null) ? monitorIdx.toString() : '0';
@@ -514,24 +660,15 @@ console.log('==================================================\n');
     function showNoticePopup(msg) {
         if (!msg) return;
 
-        const inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
+        let inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
+        if (!fs.existsSync(inputCtrlPath)) inputCtrlPath = path.join(__dirname, '..', 'input_ctrl.exe');
+        if (!fs.existsSync(inputCtrlPath)) inputCtrlPath = path.join(__dirname, '..', 'core', 'input_ctrl.exe');
+
         if (fs.existsSync(inputCtrlPath)) {
             try {
                 spawn(inputCtrlPath, ['popup', msg], { detached: true, stdio: 'ignore' }).unref();
-                return;
             } catch(e) {}
         }
-
-        // input_ctrl.exe가 없을 때만 안전용 Fallback
-        const cleanMsg = msg.replace(/"/g, '""');
-        const vbs = `MsgBox "${cleanMsg}", 4096 + 64, "🏢 다연코퍼레이션 관리자 공지"`;
-        const tmp = path.join(os.tmpdir(), `dayeon_msg_${Date.now()}.vbs`);
-        try {
-            fs.writeFileSync(tmp, '\ufeff' + vbs, 'utf16le');
-            execFile('wscript.exe', [tmp], () => {
-                try { fs.unlinkSync(tmp); } catch(e) {}
-            });
-        } catch(e) {}
     }
 
     let isUpdating = false;
@@ -575,7 +712,7 @@ console.log('==================================================\n');
         });
         req.on('error', () => { isUpdating = false; });
         // 🌟 timeout 옵션은 이벤트만 발생시킬 뿐 소켓을 자동으로 끊지 않으므로,
-        // 핸들러 없이 방치하면 LAN/클라우드 연결이 멎었을 때 요청이 무한 대기 상태가 된다.
+        // 핸들러 없이 방치하면 연결이 멎었을 때 요청이 무한 대기 상태가 된다.
         req.on('timeout', () => { req.destroy(new Error('version check timeout')); isUpdating = false; });
         req.end();
     }
@@ -584,14 +721,6 @@ console.log('==================================================\n');
         return new Promise((resolve, reject) => {
             const tempPath = path.join(destDir, fileName);
             const fileStream = fs.createWriteStream(tempPath);
-            let settled = false;
-            const fail = (err) => {
-                if (settled) return;
-                settled = true;
-                fileStream.close();
-                try { fs.unlinkSync(tempPath); } catch(e) {}
-                reject(err);
-            };
             const req = netModule.request({
                 hostname: targetHost,
                 port: targetPort,
@@ -601,7 +730,9 @@ console.log('==================================================\n');
                 timeout: 15000
             }, (res) => {
                 if (res.statusCode !== 200) {
-                    return fail(new Error('Download failed: ' + res.statusCode));
+                    fileStream.close();
+                    try { fs.unlinkSync(tempPath); } catch(e) {}
+                    return reject(new Error('Download failed: ' + res.statusCode));
                 }
                 const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
                 let curBytes = 0;
@@ -609,22 +740,21 @@ console.log('==================================================\n');
                     curBytes += chunk.length;
                     if (onProgress) onProgress(chunk.length, curBytes, totalBytes);
                 });
-                // (참고) Node의 IncomingMessage(res)는 'timeout' 이벤트를 자체적으로
-                // 발생시키지 않아 여기 res.on('timeout', ...)을 걸어도 절대 호출되지
-                // 않는 죽은 코드였다. 스트리밍 도중 멈추는 경우는 아래 req의 소켓
-                // 유휴 타임아웃(req.on('timeout'))이 요청~응답 전체 구간에 적용되어
-                // 이미 커버하고 있으므로 별도 처리 없이 제거한다.
                 res.pipe(fileStream);
                 fileStream.on('finish', () => {
-                    if (settled) return;
-                    settled = true;
                     fileStream.close(() => resolve(tempPath));
                 });
             });
-            req.on('error', (err) => fail(err));
+            req.on('error', (err) => {
+                fileStream.close();
+                try { fs.unlinkSync(tempPath); } catch(e) {}
+                reject(err);
+            });
             // 🌟 연결/응답이 모두 멈춘 무응답 상태를 실제로 끊어서 Promise.all이
             // 영원히 대기하지 않도록 한다. (이것이 위젯이 [0%]에서 멈추는 근본 원인)
-            req.on('timeout', () => fail(new Error('Download timeout: ' + fileName)));
+            req.on('timeout', () => {
+                req.destroy(new Error('Download timeout: ' + fileName));
+            });
             req.end();
         });
     }
@@ -661,7 +791,7 @@ console.log('==================================================\n');
             const updateTempDir = path.join(__dirname, 'update_temp');
             if (!fs.existsSync(updateTempDir)) fs.mkdirSync(updateTempDir, { recursive: true });
 
-            const files = serverVer.files || ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', '다연코퍼레이션.exe', 'version.json'];
+            const files = serverVer.files || ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', '다연코퍼레이션.exe', '다연원격_클라이언트.exe', 'version.json'];
             let completedCount = 0;
             const totalFiles = files.length;
 
@@ -691,7 +821,7 @@ console.log('==================================================\n');
                 'chcp 65001 >nul',
                 'cd /d "%~dp0"',
                 'timeout /t 1 /nobreak >nul',
-                'taskkill /F /IM fastcap.exe /IM audiocap.exe /IM input_ctrl.exe >nul 2>&1',
+                'taskkill /F /IM fastcap.exe /IM audiocap.exe /IM input_ctrl.exe /IM DayeonClient.exe /IM 다연원격_클라이언트.exe >nul 2>&1',
                 'timeout /t 1 /nobreak >nul',
                 'if exist "update_temp\\다연코퍼레이션.exe" (',
                 '    if exist "..\\다연코퍼레이션.exe.old" del /F /Q "..\\다연코퍼레이션.exe.old" >nul 2>&1',
@@ -706,6 +836,8 @@ console.log('==================================================\n');
                 'xcopy /Y /Q /E "update_temp\\*" ".\\" >nul 2>&1',
                 'rmdir /S /Q "update_temp" >nul 2>&1',
                 'timeout /t 1 /nobreak >nul',
+                'if exist "다연원격_클라이언트.exe" start "" "다연원격_클라이언트.exe"',
+                'if exist "..\\다연코퍼레이션.exe" start "" "..\\다연코퍼레이션.exe"',
                 'del "%~f0" >nul 2>&1'
             ].join('\r\n');
             fs.writeFileSync(updaterBat, batContent, 'utf8');
@@ -759,6 +891,17 @@ console.log('==================================================\n');
     }
 
     function executeControlNative(type, relX, relY, key, monitorIdx, msg, delta) {
+        if (typeof type === 'object' && type !== null) {
+            const obj = type;
+            type = obj.type;
+            relX = obj.relX;
+            relY = obj.relY;
+            key = obj.key;
+            monitorIdx = obj.monitorIdx || obj.monitor;
+            msg = obj.msg;
+            delta = obj.delta;
+        }
+
         if (type === 'exit' || type === 'kill_agent') {
             try { if (inputCtrlProcess) inputCtrlProcess.kill(); } catch(e) {}
             try { if (fastcapDaemon) fastcapDaemon.kill(); } catch(e) {}
@@ -766,25 +909,24 @@ console.log('==================================================\n');
             return;
         }
 
-        if (type === 'set_nickname') {
-            myNickname = (msg || key || relX || '').toString().trim();
-            try { fs.writeFileSync(path.join(__dirname, 'nickname.txt'), myNickname, 'utf8'); } catch(e) {}
+        if (type === 'start_native' || type === 'start_dayeon_client') {
+            ensureDayeonNativeServer();
             return;
         }
 
-        if (type === 'select_monitor' || type === 'monitor') {
-            const targetM = (monitorIdx !== undefined && monitorIdx !== null ? monitorIdx : (relX !== undefined ? relX : (key || msg || '0'))).toString();
-            setFastcapMonitor(targetM, true);
-            return;
-        }
-
-        if (type === 'close_update_widget') {
-            try { execSync('taskkill /F /FI "WINDOWTITLE eq *시스템 실시간 업데이트*" >nul 2>&1'); } catch(e) {}
+        if (type === 'select_monitor' || type === 'switch_monitor') {
+            const newMon = (monitorIdx !== undefined && monitorIdx !== null) ? monitorIdx.toString() : (key || msg || relX || '0').toString();
+            targetMonitor = newMon;
+            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                fastcapMonitor = targetMonitor;
+                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+            }
             return;
         }
 
         if (type === 'focus_change') {
-            applyStreamFocusState(!!(key === 'true' || key === true || msg === 'true' || delta === 1 || relX === 1 || relX === 'true'));
+            const isFoc = !!(key === 'true' || key === true || msg === 'true' || delta === 1 || relX === 1 || relX === 'true');
+            applyStreamFocusState(isFoc);
             return;
         }
 
@@ -961,22 +1103,41 @@ console.log('==================================================\n');
         isReporting = true;
 
         ensureFastcapDaemon();
-        const currentMon = fastcapMonitor || targetMonitor || '0';
-        targetMonitor = currentMon;
+        const currentMon = targetMonitor;
+        if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+            if (fastcapMonitor !== currentMon) {
+                fastcapMonitor = currentMon;
+                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+            }
+        }
 
-        const imgB64 = (latestCapturedFrame && latestCapturedFrame.length > 100) ? latestCapturedFrame.toString('base64') : '';
-
-        const payload = JSON.stringify({
+        const payloadObj = {
             id: pcId,
             name: pcId,
-            nickname: myNickname,
-            lanIp: myLanIp,
-            lanPort: 8001,
             monitor: currentMon,
             isUpdating: isUpdating,
             clipboardB64: latestRemoteClipboardB64,
-            image: imgB64
-        });
+            lanIp: localFullIp,
+            lanPort: LAN_PORT
+        };
+        const frame = (latestMonitorFrames && latestMonitorFrames[currentMon]) || latestCapturedFrame;
+        if (frame) {
+            payloadObj.image = frame.toString('base64');
+            doSendReport(payloadObj);
+        } else {
+            captureScreen(currentMon, (freshFrame) => {
+                if (freshFrame) {
+                    const b = Buffer.isBuffer(freshFrame) ? freshFrame : Buffer.from(freshFrame, 'base64');
+                    latestCapturedFrame = b;
+                    payloadObj.image = b.toString('base64');
+                }
+                doSendReport(payloadObj);
+            });
+        }
+    }
+
+    function doSendReport(payloadObj) {
+        const payload = JSON.stringify(payloadObj);
 
         const req = netModule.request({
             hostname: targetHost,
@@ -1004,8 +1165,8 @@ console.log('==================================================\n');
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
-                        setFastcapMonitor(data.requestedMonitor, false);
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
+                        targetMonitor = data.requestedMonitor.toString();
                     }
                     if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
                         processCommands(data.commands);
@@ -1023,10 +1184,7 @@ console.log('==================================================\n');
             }
         });
 
-        req.on('timeout', () => {
-            req.destroy();
-            isReporting = false;
-        });
+        req.on('timeout', () => { req.destroy(); isReporting = false; });
 
         req.write(payload);
         req.end();
@@ -1047,24 +1205,28 @@ console.log('==================================================\n');
         }, (res) => {
             if (res.socket) res.socket.setNoDelay(true);
             let body = '';
-            res.on('data', chunk => {
-                body += chunk;
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                isPollingCmds = false;
                 try {
                     const data = JSON.parse(body);
-                    body = '';
                     if (data.isFocused !== undefined) {
                         applyStreamFocusState(!!data.isFocused);
                     }
-                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null && data.requestedMonitor !== '') {
-                        setFastcapMonitor(data.requestedMonitor, false);
+                    if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
+                        const newMon = data.requestedMonitor.toString();
+                        if (targetMonitor !== newMon) {
+                            targetMonitor = newMon;
+                            if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                fastcapMonitor = targetMonitor;
+                                try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                            }
+                        }
                     }
                     if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
                         processCommands(data.commands);
                     }
                 } catch(e) {}
-            });
-            res.on('end', () => {
-                isPollingCmds = false;
                 setImmediate(fastControlLoop);
             });
         });
@@ -1080,6 +1242,95 @@ console.log('==================================================\n');
         });
         req.end();
     }
+
+    function decodeWsTextSimple(buffer) {
+        if (buffer.length < 2) return null;
+        const isMasked = (buffer[1] & 0x80) !== 0;
+        let payloadLen = buffer[1] & 0x7F;
+        let maskOffset = 2;
+        if (payloadLen === 126) {
+            if (buffer.length < 4) return null;
+            payloadLen = buffer.readUInt16BE(2);
+            maskOffset = 4;
+        } else if (payloadLen === 127) {
+            if (buffer.length < 10) return null;
+            payloadLen = Number(buffer.readBigUInt64BE(2));
+            maskOffset = 10;
+        }
+        let dataOffset = maskOffset + (isMasked ? 4 : 0);
+        if (buffer.length < dataOffset + payloadLen) return null;
+        let out = Buffer.allocUnsafe(payloadLen);
+        if (isMasked) {
+            const mask = buffer.slice(maskOffset, maskOffset + 4);
+            for (let i = 0; i < payloadLen; i++) {
+                out[i] = buffer[dataOffset + i] ^ mask[i % 4];
+            }
+        } else {
+            buffer.copy(out, 0, dataOffset, dataOffset + payloadLen);
+        }
+        return out.toString('utf8');
+    }
+
+    // 🌟 2-2. 0ms 실시간 WebSocket 직통 제어 채널
+    function connectAgentWs() {
+        try {
+            const wsReq = (isHttps ? https : http).request({
+                hostname: targetHost,
+                port: targetPort,
+                path: `/ws/agent?id=${encodeURIComponent(pcId)}`,
+                headers: {
+                    'Connection': 'Upgrade',
+                    'Upgrade': 'websocket',
+                    'Sec-WebSocket-Version': '13',
+                    'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64')
+                }
+            });
+            wsReq.on('upgrade', (res, socket, head) => {
+                socket.setNoDelay(true);
+                globalAgentWsSocket = socket;
+                console.log('⚡ [다연코퍼레이션] 초고속 0ms WebSocket 실시간 제어 채널 연결 완료!');
+
+                socket.on('data', (chunk) => {
+                    try {
+                        const text = decodeWsTextSimple(chunk);
+                        if (text) {
+                            const data = JSON.parse(text);
+                            if (data.isFocused !== undefined) applyStreamFocusState(!!data.isFocused);
+                            if (data.requestedMonitor !== undefined && data.requestedMonitor !== null) {
+                                const newMon = data.requestedMonitor.toString();
+                                if (targetMonitor !== newMon) {
+                                    targetMonitor = newMon;
+                                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                                        fastcapMonitor = targetMonitor;
+                                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                                    }
+                                }
+                            }
+                            if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+                                processCommands(data.commands);
+                            }
+                        }
+                    } catch(e) {}
+                });
+
+                socket.on('close', () => {
+                    if (globalAgentWsSocket === socket) globalAgentWsSocket = null;
+                    setTimeout(connectAgentWs, 1500);
+                });
+                socket.on('error', () => {
+                    if (globalAgentWsSocket === socket) globalAgentWsSocket = null;
+                    socket.destroy();
+                });
+            });
+            wsReq.on('error', () => {
+                setTimeout(connectAgentWs, 2000);
+            });
+            wsReq.end();
+        } catch(e) {
+            setTimeout(connectAgentWs, 2000);
+        }
+    }
+    connectAgentWs();
 
     // 3. 실시간 오디오 루프백 캡처 및 전송 루프
     let audioProc = null;

@@ -33,7 +33,7 @@ const verData = {
     version: curVer,
     updatedAt: Date.now(),
     updatedDate: dateStr,
-    files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', 'version.json', 'server_ip.txt'],
+    files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연원격_클라이언트.exe', 'version.json', 'server_ip.txt'],
     description: `다연코퍼레이션 자동 업데이트 패키지 (${dateStr})`
 };
 fs.writeFileSync(verFile, JSON.stringify(verData, null, 2), 'utf8');
@@ -49,7 +49,8 @@ if (fs.existsSync(cscPath)) {
         execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, 'input_ctrl.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', path.join(baseDir, 'input_ctrl.cs')]);
         execFileSync(cscPath, ['/target:exe', `/out:${path.join(baseDir, 'fastcap.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Core.dll', path.join(baseDir, 'fastcap.cs')]);
         execFileSync(cscPath, ['/target:exe', `/out:${path.join(baseDir, 'audiocap.exe')}`, `/r:${path.join(baseDir, 'NAudio.dll')}`, path.join(baseDir, 'audiocap.cs')]);
-        console.log('✅ C# 모듈 (다연코퍼레이션.exe, 관리자.exe, input_ctrl.exe, fastcap.exe, audiocap.exe) 최신 컴파일 완료!');
+        execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, '다연원격_클라이언트.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:Microsoft.VisualBasic.dll', '/r:System.dll', '/r:System.Web.Extensions.dll', '/r:System.Core.dll', path.join(baseDir, 'DayeonClient.cs')]);
+        console.log('✅ C# 모듈 (다연코퍼레이션.exe, 관리자.exe, input_ctrl.exe, fastcap.exe, audiocap.exe, 다연원격_클라이언트.exe) 최신 컴파일 완료!');
     } catch(e) {
         console.error('CSC compile error:', e.message);
     }
@@ -228,6 +229,7 @@ safeCopy(path.join(baseDir, 'fastcap.exe'), path.join(agentCoreDir, 'fastcap.exe
 safeCopy(path.join(baseDir, 'input_ctrl.exe'), path.join(agentCoreDir, 'input_ctrl.exe'));
 safeCopy(path.join(baseDir, 'audiocap.exe'), path.join(agentCoreDir, 'audiocap.exe'));
 safeCopy(path.join(baseDir, 'NAudio.dll'), path.join(agentCoreDir, 'NAudio.dll'));
+safeCopy(path.join(baseDir, '다연원격_클라이언트.exe'), path.join(agentCoreDir, '다연원격_클라이언트.exe'));
 safeCopy(verFile, path.join(agentCoreDir, 'version.json'));
 safeCopy(path.join(agentPkgDir, 'server_ip.txt'), path.join(agentCoreDir, 'server_ip.txt'));
 
