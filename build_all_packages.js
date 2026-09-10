@@ -45,7 +45,10 @@ const { execFileSync } = require('child_process');
 if (fs.existsSync(cscPath)) {
     try {
         execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, '다연코퍼레이션.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', path.join(baseDir, 'tray_app.cs')]);
-        execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, '다연코퍼레이션 관리자.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', path.join(baseDir, 'tray_app.cs')]);
+        // 🌟 주의: 예전에는 tray_app.cs를 '다연코퍼레이션 관리자.exe'로도 컴파일했으나,
+        // 이는 실제 WinForms 관리자 프로그램인 manager_app.cs의 산출물과 파일명이
+        // 겹쳐서 서로 덮어쓰는 심각한 버그였다. 관리자.exe는 반드시 manager_app.cs로만 빌드한다.
+        execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, '다연코퍼레이션 관리자.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:Microsoft.VisualBasic.dll', '/r:System.dll', '/r:System.Web.Extensions.dll', '/r:System.Core.dll', '/optimize+', '/platform:anycpu', path.join(baseDir, 'manager_app.cs')]);
         execFileSync(cscPath, ['/target:winexe', `/out:${path.join(baseDir, 'input_ctrl.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', path.join(baseDir, 'input_ctrl.cs')]);
         execFileSync(cscPath, ['/target:exe', `/out:${path.join(baseDir, 'fastcap.exe')}`, '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Core.dll', path.join(baseDir, 'fastcap.cs')]);
         execFileSync(cscPath, ['/target:exe', `/out:${path.join(baseDir, 'audiocap.exe')}`, `/r:${path.join(baseDir, 'NAudio.dll')}`, path.join(baseDir, 'audiocap.cs')]);
