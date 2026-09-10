@@ -568,35 +568,78 @@ namespace DayeonRemoteClient {
             t.Start();
         }
 
+        [DllImport("user32.dll")]
+        static extern bool ReleaseCapture();
+        [DllImport("user32.dll")]
+        static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+        const int WM_NCLBUTTONDOWN = 0xA1;
+        const int HT_CAPTION = 0x2;
+
         public CustomNoticeForm(string message, string title) {
-            this.Text = "🏢 " + title;
-            this.Size = new Size(460, 240);
+            this.Size = new Size(440, 250);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.TopMost = true;
-            this.BackColor = Color.FromArgb(15, 23, 42);
+            this.BackColor = Color.FromArgb(8, 13, 28);
             this.ForeColor = Color.White;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.None;
             this.ShowInTaskbar = true;
 
-            // Header Panel
+            // 🌟 은은한 시안색 테두리 (프레임 없는 창을 은은하게 감싸줌)
+            this.Paint += (s, e) => {
+                using (Pen p = new Pen(Color.FromArgb(56, 189, 248), 1.5f)) {
+                    e.Graphics.DrawRectangle(p, 0, 0, this.Width - 1, this.Height - 1);
+                }
+            };
+
+            // Header Panel (드래그로 창 이동 + 자체 닫기 버튼)
             Panel header = new Panel {
                 Dock = DockStyle.Top,
-                Height = 44,
-                BackColor = Color.FromArgb(30, 41, 59)
+                Height = 46,
+                BackColor = Color.FromArgb(17, 24, 45),
+                Cursor = Cursors.SizeAll
             };
+            MouseEventHandler dragHandler = (s, e) => {
+                if (e.Button == MouseButtons.Left) {
+                    ReleaseCapture();
+                    SendMessage(this.Handle, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+                }
+            };
+            header.MouseDown += dragHandler;
+
             Label lblHeader = new Label {
-                Text = "📢 " + title,
-                Font = new Font("Malgun Gothic", 11f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(56, 189, 248),
+                Text = "🏢  " + title,
+                Font = new Font("Malgun Gothic", 11.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(125, 211, 252),
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 0, 0, 0)
+                Padding = new Padding(16, 0, 0, 0),
+                Cursor = Cursors.SizeAll
             };
-            header.Controls.Add(lblHeader);
+            lblHeader.MouseDown += dragHandler;
 
-            // Body message box
+            Button btnClose = new Button {
+                Text = "✕",
+                Dock = DockStyle.Right,
+                Width = 46,
+                Font = new Font("Malgun Gothic", 11f, FontStyle.Bold),
+                BackColor = Color.FromArgb(17, 24, 45),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 38, 38);
+            btnClose.Click += (s, e) => this.Close();
+
+            header.Controls.Add(lblHeader);
+            header.Controls.Add(btnClose);
+
+            // Body message box (은은한 카드 배경 위에 메시지)
+            Panel bodyCard = new Panel {
+                BackColor = Color.FromArgb(15, 23, 42),
+                Location = new Point(20, 62),
+                Size = new Size(this.Width - 40, 110)
+            };
             TextBox txtMsg = new TextBox {
                 Multiline = true,
                 ReadOnly = true,
@@ -606,26 +649,28 @@ namespace DayeonRemoteClient {
                 BackColor = Color.FromArgb(15, 23, 42),
                 ForeColor = Color.FromArgb(241, 245, 249),
                 BorderStyle = BorderStyle.None,
-                Location = new Point(20, 56),
-                Size = new Size(405, 95)
+                Dock = DockStyle.Fill,
+                Padding = new Padding(14, 12, 14, 12)
             };
+            bodyCard.Controls.Add(txtMsg);
 
             // Bottom OK button
             Button btnOk = new Button {
                 Text = "확인",
-                Font = new Font("Malgun Gothic", 10f, FontStyle.Bold),
+                Font = new Font("Malgun Gothic", 10.5f, FontStyle.Bold),
                 BackColor = Color.FromArgb(2, 132, 199),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(110, 34),
-                Location = new Point(165, 155),
+                Size = new Size(120, 38),
                 Cursor = Cursors.Hand
             };
+            btnOk.Location = new Point((this.Width - btnOk.Width) / 2, 190);
             btnOk.FlatAppearance.BorderSize = 0;
+            btnOk.FlatAppearance.MouseOverBackColor = Color.FromArgb(3, 105, 161);
             btnOk.Click += (s, e) => this.Close();
 
             this.Controls.Add(header);
-            this.Controls.Add(txtMsg);
+            this.Controls.Add(bodyCard);
             this.Controls.Add(btnOk);
             this.AcceptButton = btnOk;
         }
