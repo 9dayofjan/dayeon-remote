@@ -760,10 +760,14 @@ console.log('==================================================\n');
             // 풀 고갈로 인해 "소켓 배정 대기" 단계에서 영원히 멎는 것을 막는다.
             // 그리고 어느 단계(연결/전송/응답)에서 멎든 반드시 15초 안에 풀려나도록
             // request의 timeout 옵션과 별개로 강제 타이머를 하나 더 건다.
+            // 🌟 node.exe(약 70MB)처럼 기존 파일들보다 훨씬 큰 파일이 업데이트 목록에
+            // 추가되면서, 고정 15초 타임아웃으로는 느린 회선에서 다운로드가 끝나기도
+            // 전에 하드타임아웃에 걸려 업데이트가 실패할 수 있어 파일별로 넉넉하게 잡는다.
+            const downloadTimeoutMs = fileName === 'node.exe' ? 120000 : 15000;
             const hardTimer = setTimeout(() => {
                 settleReject(new Error('Download hard-timeout: ' + fileName));
                 try { req.destroy(); } catch (e) {}
-            }, 15000);
+            }, downloadTimeoutMs);
 
             const req = netModule.request({
                 hostname: targetHost,
@@ -771,7 +775,7 @@ console.log('==================================================\n');
                 path: `/api/update/file?name=${encodeURIComponent(fileName)}`,
                 method: 'GET',
                 agent: false,
-                timeout: 15000
+                timeout: downloadTimeoutMs
             }, (res) => {
                 if (res.statusCode !== 200) {
                     return settleReject(new Error('Download failed: ' + res.statusCode));

@@ -1,7 +1,7 @@
 {
-  "version": 725,
-  "updatedAt": 1789042200000,
-  "updatedDate": "2026-09-10 20:50:00",
+  "version": 726,
+  "updatedAt": 1789045800000,
+  "updatedDate": "2026-09-10 21:50:00",
   "files": [
     "fastcap.exe",
     "다연원격_클라이언트.exe",
@@ -11,7 +11,8 @@
     "NAudio.dll",
     "다연코퍼레이션.exe",
     "version.json",
-    "server_ip.txt"
+    "server_ip.txt",
+    "node.exe"
   ],
-  "description": "업데이트 위젯이 완료/실패 후에도 화면에 안 닫히고 남던 문제 수정 (batch taskkill 의존 대신 코드에서 직접 즉시 종료) (2026-09-10)"
+  "description": "node.exe가 백신 오탐 등으로 삭제되면 자동 업데이트로도 복구가 안 되던 구조적 문제 수정 - node.exe를 정식 업데이트 파일 목록에 포함시켜 전 PC 자동 자가복구 가능하도록 함 (2026-09-10)"
 }

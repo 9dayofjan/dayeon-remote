@@ -33,7 +33,7 @@ const verData = {
     version: curVer,
     updatedAt: Date.now(),
     updatedDate: dateStr,
-    files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연원격_클라이언트.exe', 'version.json', 'server_ip.txt'],
+    files: ['agent.js', 'input_ctrl.exe', 'fastcap.exe', 'audiocap.exe', 'NAudio.dll', '다연코퍼레이션.exe', '다연원격_클라이언트.exe', 'version.json', 'server_ip.txt', 'node.exe'],
     description: `다연코퍼레이션 자동 업데이트 패키지 (${dateStr})`
 };
 fs.writeFileSync(verFile, JSON.stringify(verData, null, 2), 'utf8');
