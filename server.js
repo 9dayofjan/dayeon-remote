@@ -80,7 +80,9 @@ function createWavHeader(sampleRate = 48000, channels = 2, bitsPerSample = 16) {
     return header;
 }
 
-let adminSessions = {};
+// 🌟 이름과 달리 로그인/인증 여부와는 무관하다. /api/pcs를 최근에 호출한
+// "뷰어"들의 하트비트만 모아 동시 접속자 수를 추정하는 용도일 뿐이다.
+let viewerHeartbeats = {};
 
 // ---- 🛡️ IP 보안 허용 목록 (Whitelist) 관리 (대표님 IP 172.30.1.36 기본 허용) ----
 let allowedIps = ['127.0.0.1', '::1', 'localhost', '172.30.1.36'];
@@ -196,9 +198,12 @@ function cleanupStalePCs() {
             delete activeViewedMonitor[pcId];
         }
     }
-    for (const adminId in adminSessions) {
-        if (now - adminSessions[adminId] > 6000) {
-            delete adminSessions[adminId];
+    for (const id in viewerHeartbeats) {
+        // 🌟 이전에는 `now - viewerHeartbeats[id]`처럼 객체를 그대로 숫자 빼기해서
+        // 항상 NaN이 되어(NaN > 6000은 항상 false) 이 정리 루프가 한 번도
+        // 실제로 동작하지 않았다. .time 필드를 비교하도록 수정.
+        if (now - viewerHeartbeats[id].time > 6000) {
+            delete viewerHeartbeats[id];
         }
     }
 }
@@ -494,13 +499,13 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/pcs') {
         const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
         const adminId = urlObj.searchParams.get('adminId') || (clientIp + ':' + (req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 30) : ''));
-        adminSessions[adminId] = { time: Date.now(), ip: clientIp };
+        viewerHeartbeats[adminId] = { time: Date.now(), ip: clientIp };
 
         const now = Date.now();
-        for (const id in adminSessions) {
-            if (now - adminSessions[id].time > 4000) delete adminSessions[id];
+        for (const id in viewerHeartbeats) {
+            if (now - viewerHeartbeats[id].time > 4000) delete viewerHeartbeats[id];
         }
-        const adminCount = Math.max(1, Object.keys(adminSessions).length);
+        const adminCount = Math.max(1, Object.keys(viewerHeartbeats).length);
 
         res.writeHead(200, {
             'Content-Type': 'application/json',

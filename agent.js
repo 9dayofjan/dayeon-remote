@@ -538,6 +538,11 @@ console.log('==================================================\n');
 
     function checkAndApplyUpdate(force = false) {
         if (isUpdating) return;
+        // 🌟 버전 확인 요청이 진행되는 동안(응답 오기 전)에도 isUpdating을 true로
+        // 잠가둬야 한다. 예전에는 performUpdate 진입 시점에만 잠갔기 때문에,
+        // 60초 주기 체크와 수동 'update' 명령이 거의 동시에 들어오면 두 개의
+        // performUpdate가 동시에 실행되어 같은 파일을 이중으로 다운로드/치환할 수 있었다.
+        isUpdating = true;
         const req = netModule.request({
             hostname: targetHost,
             port: targetPort,
@@ -559,15 +564,19 @@ console.log('==================================================\n');
 
                     if (force || (serverVer.version && serverVer.version > (localVer.version || 0))) {
                         console.log(`[🚀 자동 업데이트 실행] v${localVer.version} -> v${serverVer.version} (force: ${force})`);
-                        performUpdate(serverVer);
+                        performUpdate(serverVer); // isUpdating을 계속 true로 유지한 채 이어받아 관리함
+                    } else {
+                        isUpdating = false; // 업데이트 불필요 → 잠금 해제
                     }
-                } catch(e) {}
+                } catch(e) {
+                    isUpdating = false;
+                }
             });
         });
-        req.on('error', () => {});
+        req.on('error', () => { isUpdating = false; });
         // 🌟 timeout 옵션은 이벤트만 발생시킬 뿐 소켓을 자동으로 끊지 않으므로,
         // 핸들러 없이 방치하면 LAN/클라우드 연결이 멎었을 때 요청이 무한 대기 상태가 된다.
-        req.on('timeout', () => { req.destroy(new Error('version check timeout')); });
+        req.on('timeout', () => { req.destroy(new Error('version check timeout')); isUpdating = false; });
         req.end();
     }
 
@@ -600,8 +609,11 @@ console.log('==================================================\n');
                     curBytes += chunk.length;
                     if (onProgress) onProgress(chunk.length, curBytes, totalBytes);
                 });
-                // 응답을 받은 뒤 스트리밍 도중 멈추는 경우도 대비 (구간 무응답 감지)
-                res.on('timeout', () => fail(new Error('Download stalled: ' + fileName)));
+                // (참고) Node의 IncomingMessage(res)는 'timeout' 이벤트를 자체적으로
+                // 발생시키지 않아 여기 res.on('timeout', ...)을 걸어도 절대 호출되지
+                // 않는 죽은 코드였다. 스트리밍 도중 멈추는 경우는 아래 req의 소켓
+                // 유휴 타임아웃(req.on('timeout'))이 요청~응답 전체 구간에 적용되어
+                // 이미 커버하고 있으므로 별도 처리 없이 제거한다.
                 res.pipe(fileStream);
                 fileStream.on('finish', () => {
                     if (settled) return;
@@ -618,8 +630,8 @@ console.log('==================================================\n');
     }
 
     async function performUpdate(serverVer) {
-        if (isUpdating) return;
-        isUpdating = true;
+        // isUpdating은 checkAndApplyUpdate에서 버전 확인 시작 시점에 이미 true로
+        // 잠가뒀다 (중복 실행 방지). 여기서 다시 확인/설정하지 않는다.
 
         let updateWidgetProc = null;
         const inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
