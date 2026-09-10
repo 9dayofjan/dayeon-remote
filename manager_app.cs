@@ -2669,8 +2669,46 @@ public class RemoteViewerForm : Form {
         }
 
         if (isZoomMode && isRemoteControlEnabled && !string.IsNullOrEmpty(currentZoomPcId)) {
-            string keyName = keyData.ToString();
-            SendControlFast(currentZoomPcId, "keydown", 0, 0, currentMonitorIdx, keyName);
+            // 🌟 Ctrl+V: 원격에 키 입력을 그대로 전달하는 대신, 관리자(이 PC)의 클립보드
+            // 텍스트를 실제로 원격 PC 클립보드에 심고 그쪽에서 붙여넣기하도록 한다.
+            // (예전에는 그냥 "V" 키 입력만 전달되어 원격 자체 클립보드 내용만 붙여넣어졌음)
+            if (keyData == (Keys.Control | Keys.V)) {
+                string clipText = null;
+                try { if (Clipboard.ContainsText()) clipText = Clipboard.GetText(); } catch { }
+                if (!string.IsNullOrEmpty(clipText)) {
+                    byte bMon = 0;
+                    byte.TryParse(currentMonitorIdx, out bMon);
+                    byte[] payload = Encoding.UTF8.GetBytes(clipText);
+                    lock (zoomTcpLock) {
+                        if (activeZoomTcpStream != null && activeZoomTcpStream.CanWrite) {
+                            WriteTcp8888Pkt(0x30, bMon, 0, 0, payload);
+                        } else {
+                            SendControlFast(currentZoomPcId, "paste_text", 0, 0, currentMonitorIdx, null, clipText);
+                        }
+                    }
+                }
+                return true;
+            }
+
+            // 🌟 예전에는 keyData.ToString()(예: "W, Control")를 그대로 한 번에 keydown만
+            // 보내서 (1) 조합키가 ushort로 캐스팅되며 깨지고 (2) keyup이 전혀 안 가서
+            // 원격 PC에 키가 눌린 채로 고착되는 버그가 있었다. 조합키를 modifier들과
+            // 실제 키로 분해해 각각 keydown 후, 역순으로 keyup까지 반드시 보낸다.
+            Keys baseKey = keyData & Keys.KeyCode;
+            var pressSeq = new System.Collections.Generic.List<Keys>();
+            if ((keyData & Keys.Control) == Keys.Control) pressSeq.Add(Keys.ControlKey);
+            if ((keyData & Keys.Shift) == Keys.Shift) pressSeq.Add(Keys.ShiftKey);
+            if ((keyData & Keys.Alt) == Keys.Alt) pressSeq.Add(Keys.Menu);
+            if (baseKey != Keys.None && baseKey != Keys.ControlKey && baseKey != Keys.ShiftKey && baseKey != Keys.Menu) {
+                pressSeq.Add(baseKey);
+            }
+
+            foreach (var k in pressSeq) {
+                SendControlFast(currentZoomPcId, "keydown", 0, 0, currentMonitorIdx, k.ToString());
+            }
+            for (int i = pressSeq.Count - 1; i >= 0; i--) {
+                SendControlFast(currentZoomPcId, "keyup", 0, 0, currentMonitorIdx, pressSeq[i].ToString());
+            }
             return true;
         }
 
