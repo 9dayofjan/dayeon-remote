@@ -882,6 +882,12 @@ console.log('==================================================\n');
 
             try { if (fastcapDaemon) fastcapDaemon.kill(); } catch(e) {}
 
+            // 🌟 예전에는 updater.bat의 taskkill(1초 지연 후 실행)에만 의존해서 위젯을
+            // 닫았는데, node.exe가 그보다 먼저 exit()해버리면 taskkill이 실행되기 전
+            // 타이밍이 꼬여 위젯이 고아 프로세스로 화면에 계속 남는 경우가 있었다.
+            // updater.bat와 별개로 여기서 직접, 확실하게 위젯을 종료시킨다.
+            try { if (updateWidgetProc && !updateWidgetProc.killed) updateWidgetProc.kill(); } catch(e) {}
+
             // updater.bat를 완전히 분리된 백그라운드 프로세스로 실행
             execFile('cmd.exe', ['/c', 'updater.bat'], {
                 detached: true,
@@ -899,7 +905,9 @@ console.log('==================================================\n');
             setWidgetProgress(0, `⚠️ 업데이트 실패 (네트워크 지연): 잠시 후 재시도합니다.`);
             if (updateWidgetProc) {
                 try { updateWidgetProc.stdin.write('exit\n'); } catch(err) {}
-                setTimeout(() => { try { updateWidgetProc.kill(); } catch(err) {} }, 3000);
+                // 🌟 3초씩 기다리지 않고 훨씬 짧게(800ms) 강제 종료해서, 화면에 위젯이
+                // 오래 남아있는 것처럼 보이는 시간을 최소화한다.
+                setTimeout(() => { try { if (!updateWidgetProc.killed) updateWidgetProc.kill(); } catch(err) {} }, 800);
             }
             isUpdating = false;
         }

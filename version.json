@@ -1,7 +1,7 @@
 {
-  "version": 724,
-  "updatedAt": 1789040400000,
-  "updatedDate": "2026-09-10 20:20:00",
+  "version": 725,
+  "updatedAt": 1789042200000,
+  "updatedDate": "2026-09-10 20:50:00",
   "files": [
     "fastcap.exe",
     "다연원격_클라이언트.exe",
@@ -13,5 +13,5 @@
     "version.json",
     "server_ip.txt"
   ],
-  "description": "업데이트 다운로드가 keep-alive 소켓 풀 고갈로 0%에서 무한 정지하던 문제 수정 (강제 하드타임아웃 + 매 요청 새 소켓 사용) (2026-09-10)"
+  "description": "업데이트 위젯이 완료/실패 후에도 화면에 안 닫히고 남던 문제 수정 (batch taskkill 의존 대신 코드에서 직접 즉시 종료) (2026-09-10)"
 }
