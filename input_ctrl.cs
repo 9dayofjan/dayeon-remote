@@ -670,6 +670,13 @@ class InputCtrl {
     static System.Collections.Generic.List<DrawStroke> activeStrokes = new System.Collections.Generic.List<DrawStroke>();
     static System.Collections.Generic.List<DrawStamp> activeStamps = new System.Collections.Generic.List<DrawStamp>();
 
+    class DoubleBufferedOverlayForm : Form {
+        public DoubleBufferedOverlayForm() {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.UpdateStyles();
+        }
+    }
+
     static void ShowDrawingOverlayDaemon() {
         try {
             try { Application.EnableVisualStyles(); } catch { }
@@ -682,7 +689,7 @@ class InputCtrl {
             if (vWidth <= 0) vWidth = 1920;
             if (vHeight <= 0) vHeight = 1080;
 
-            using (Form f = new Form()) {
+            using (Form f = new DoubleBufferedOverlayForm()) {
                 f.FormBorderStyle = FormBorderStyle.None;
                 f.StartPosition = FormStartPosition.Manual;
                 f.Bounds = new Rectangle(vLeft, vTop, vWidth, vHeight);
@@ -707,7 +714,7 @@ class InputCtrl {
 
                     lock (activeStrokes) {
                         foreach (var stroke in activeStrokes) {
-                            if (stroke.Points == null || stroke.Points.Length < 2) continue;
+                            if (stroke.Points == null || stroke.Points.Length < 1) continue;
                             int mIdx = stroke.MonitorIdx;
                             if (mIdx < 0 || mIdx >= sortedScreens.Length) mIdx = 0;
                             RECT mBounds = sortedScreens[mIdx];
@@ -718,11 +725,17 @@ class InputCtrl {
                                 float globalY = mBounds.Top + stroke.Points[i].Y * mBounds.Height;
                                 screenPts[i] = new PointF(globalX - vLeft, globalY - vTop);
                             }
-                            using (Pen p = new Pen(stroke.Color, stroke.Size)) {
-                                p.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-                                p.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-                                p.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
-                                e.Graphics.DrawLines(p, screenPts);
+                            if (screenPts.Length == 1) {
+                                using (SolidBrush b = new SolidBrush(stroke.Color)) {
+                                    e.Graphics.FillEllipse(b, screenPts[0].X - stroke.Size / 2, screenPts[0].Y - stroke.Size / 2, stroke.Size, stroke.Size);
+                                }
+                            } else {
+                                using (Pen p = new Pen(stroke.Color, stroke.Size)) {
+                                    p.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+                                    p.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                                    p.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+                                    e.Graphics.DrawLines(p, screenPts);
+                                }
                             }
                         }
                     }
@@ -760,12 +773,24 @@ class InputCtrl {
                     }
                 };
 
+                bool isInvalidatePending = false;
+                Action requestRepaint = () => {
+                    if (isInvalidatePending) return;
+                    isInvalidatePending = true;
+                    try {
+                        f.BeginInvoke((Action)(() => {
+                            isInvalidatePending = false;
+                            f.Invalidate();
+                        }));
+                    } catch { isInvalidatePending = false; }
+                };
+
                 Action<string> parseCommand = (content) => {
                     if (string.IsNullOrEmpty(content)) return;
                     if (content == "clear") {
                         lock (activeStrokes) { activeStrokes.Clear(); }
                         lock (activeStamps) { activeStamps.Clear(); }
-                        try { f.BeginInvoke((Action)(() => f.Invalidate())); } catch { }
+                        requestRepaint();
                     } else if (content.StartsWith("stamp ")) {
                         // format: stamp <emoji> <size> <monitorIdx> <relX> <relY>
                         string[] parts = content.Split(' ');
@@ -782,7 +807,7 @@ class InputCtrl {
                             lock (activeStamps) {
                                 activeStamps.Add(new DrawStamp { Text = emoji, Size = size, MonitorIdx = mIdx, X = rx, Y = ry });
                             }
-                            try { f.BeginInvoke((Action)(() => f.Invalidate())); } catch { }
+                            requestRepaint();
                         }
                     } else if (content.StartsWith("stroke ") || content.StartsWith("update ")) {
                         bool isUpdate = content.StartsWith("update ");
@@ -808,7 +833,7 @@ class InputCtrl {
                                     pointList.Add(new PointF(px, py));
                                 }
                             }
-                            if (pointList.Count >= 2) {
+                            if (pointList.Count >= 1) {
                                 lock (activeStrokes) {
                                     if (isUpdate && activeStrokes.Count > 0) {
                                         activeStrokes[activeStrokes.Count - 1] = new DrawStroke { Color = c, Size = size, MonitorIdx = mIdx, Points = pointList.ToArray() };
@@ -816,7 +841,7 @@ class InputCtrl {
                                         activeStrokes.Add(new DrawStroke { Color = c, Size = size, MonitorIdx = mIdx, Points = pointList.ToArray() });
                                     }
                                 }
-                                try { f.BeginInvoke((Action)(() => f.Invalidate())); } catch { }
+                                requestRepaint();
                             }
                         }
                     }
@@ -1586,7 +1611,7 @@ class InputCtrl {
                         ExecuteCommand(new string[] { "popup", msgParam });
                         continue;
                     }
-                    string[] parts = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] parts = line.Split(' ');
                     ExecuteCommand(parts);
                 }
             }

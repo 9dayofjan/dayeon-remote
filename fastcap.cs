@@ -206,22 +206,21 @@ class FastCap {
                     int targetH = bounds.Height;
                     bool needScale = false;
 
-                    // 🌟 2560x1440(QHD) 이하 1:1 완벽 무손실 원본 캡처 (선명도 100%), 4K 이상은 초고화질 QHD 스케일링
-                    if (targetW > 2560 || targetH > 1440) {
+                    // 🌟 1920x1080(FHD) 이하 1:1 완벽 무손실 원본 캡처, QHD/4K 대형 모니터는 초고속 FHD 60 FPS 스케일링
+                    if (targetW > 1920 || targetH > 1080) {
                         needScale = true;
-                        double scale = Math.Min(2560.0 / bounds.Width, 1440.0 / bounds.Height);
+                        double scale = Math.Min(1920.0 / bounds.Width, 1080.0 / bounds.Height);
                         targetW = (int)(bounds.Width * scale);
                         targetH = (int)(bounds.Height * scale);
                     }
 
-                    long effectiveQuality = targetQuality;
+                    long effectiveQuality = 55L;
                     if (effectiveQuality != currentQuality) {
                         currentQuality = effectiveQuality;
                         encoderParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, currentQuality);
                     }
 
-                    if (hdcSrc == IntPtr.Zero || screenCheckCounter % 60 == 0) {
-                        if (hdcSrc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdcSrc);
+                    if (hdcSrc == IntPtr.Zero) {
                         hdcSrc = GetDC(IntPtr.Zero);
                     }
 
@@ -238,8 +237,7 @@ class FastCap {
                     try {
                         hdcDest = g.GetHdc();
                         if (needScale) {
-                            SetStretchBltMode(hdcDest, 4); // HALFTONE (부드럽고 선명한 고품질 스케일링)
-                            SetBrushOrgEx(hdcDest, 0, 0, IntPtr.Zero);
+                            SetStretchBltMode(hdcDest, 3); // COLORONCOLOR (0.01ms 초고속 무지연 스케일링)
                             StretchBlt(hdcDest, 0, 0, targetW, targetH, hdcSrc, bounds.Left, bounds.Top, bounds.Width, bounds.Height, SRCOPY);
                         } else {
                             BitBlt(hdcDest, 0, 0, targetW, targetH, hdcSrc, bounds.Left, bounds.Top, SRCOPY);

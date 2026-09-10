@@ -41,7 +41,11 @@ namespace DayeonRemoteClient {
         [DllImport("gdi32.dll")]
         static extern int SetStretchBltMode(IntPtr hdc, int iStretchMode);
 
+        [DllImport("gdi32.dll")]
+        static extern bool SetBrushOrgEx(IntPtr hdc, int nXOrg, int nYOrg, IntPtr lppt);
+
         const int COLORONCOLOR = 3;
+        const int HALFTONE = 4;
         const int SRCCOPY = 0x00CC0020;
 
         // 마우스 커서 캡처 API
@@ -178,23 +182,6 @@ namespace DayeonRemoteClient {
 
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-
-                NotifyIcon tray = new NotifyIcon();
-                tray.Icon = SystemIcons.Shield;
-                tray.Text = "다연코퍼레이션";
-                tray.Visible = true;
-
-                ContextMenuStrip menu = new ContextMenuStrip();
-                var itemInfo = menu.Items.Add("다연코퍼레이션");
-                itemInfo.Enabled = false;
-                menu.Items.Add(new ToolStripSeparator());
-                var itemExit = menu.Items.Add("종료(&X)");
-                itemExit.Click += (s, e) => {
-                    tray.Visible = false;
-                    Application.Exit();
-                };
-                tray.ContextMenuStrip = menu;
-
                 Application.Run();
             }
         }
@@ -248,14 +235,34 @@ namespace DayeonRemoteClient {
         }
 
         static void HandleClient(TcpClient client) {
+            client.NoDelay = true;
+            client.SendTimeout = 2000;
+            client.ReceiveTimeout = Timeout.Infinite;
             NetworkStream ns = client.GetStream();
+            ns.ReadTimeout = Timeout.Infinite;
+            ns.WriteTimeout = 2000;
             int currentMonitor = 0;
             int targetFps = 60;
-            long quality = 75L;
+            long quality = 65L;
             bool isZoomMode = false;
             bool isAlive = true;
 
-            // 1. 입력 명령 수신 스레드
+            // 1. 초기 모드 및 모니터 설정 패킷 동기 수신 (첫 프레임부터 정확한 모니터 캡처)
+            byte[] initHdr = new byte[8];
+            int rInit = ReadExact(ns, initHdr, 0, 8);
+            if (rInit == 8) {
+                byte cmdType = initHdr[0];
+                byte monIdx = initHdr[1];
+                ushort param1 = BitConverter.ToUInt16(initHdr, 4);
+                if (cmdType == 0x01) {
+                    isZoomMode = (param1 == 1);
+                    targetFps = isZoomMode ? 60 : 5;
+                    quality = isZoomMode ? 65L : 45L;
+                    currentMonitor = monIdx;
+                }
+            }
+
+            // 2. 입력 명령 수신 스레드
             Thread inputThread = new Thread(() => {
                 byte[] inHeader = new byte[8];
                 byte[] inPayload = new byte[1024 * 16];
@@ -278,47 +285,51 @@ namespace DayeonRemoteClient {
                         if (cmdType == 0x01) { // SET_MODE
                             isZoomMode = (param1 == 1);
                             targetFps = isZoomMode ? 60 : 5;
-                            quality = isZoomMode ? 75L : 55L;
+                            quality = isZoomMode ? 65L : 45L;
                             currentMonitor = monIdx;
                         } else if (cmdType == 0x02) { // SET_MONITOR
                             currentMonitor = monIdx;
-                        } else if (cmdType >= 0x10 && cmdType <= 0x30) {
+                        } else if (cmdType >= 0x10 && cmdType <= 0x50) {
                             ExecuteNativeInput(cmdType, monIdx, param1, param2, inPayload, payloadLen);
                         }
                     }
                 } catch {
                 } finally {
                     isAlive = false;
+                    try { client.Close(); } catch { }
                 }
             });
             inputThread.IsBackground = true;
             inputThread.Priority = ThreadPriority.Highest;
             inputThread.Start();
 
-            // 2. 화면 캡처 + 실제 마우스 커서 렌더링 파이프라인
-            Bitmap bmp = null;
-            Graphics g = null;
-            int lastW = 0, lastH = 0;
-            MemoryStream ms = new MemoryStream(1024 * 1024 * 2);
+            // 3. 60 FPS 초고속 비디오 캡처 & 다이렉트 바이너리 스트리밍 루프
             byte[] outHeader = new byte[12];
             outHeader[0] = (byte)'D';
             outHeader[1] = (byte)'Y';
             outHeader[2] = (byte)'0';
             outHeader[3] = (byte)'1';
 
+            MemoryStream ms = new MemoryStream(1024 * 512);
+            Bitmap bmp = null;
+            Graphics g = null;
+            int lastW = 0, lastH = 0;
+            byte lastCapturedMon = 255;
             IntPtr hdcSrc = GetDC(IntPtr.Zero);
-            Stopwatch sw = new Stopwatch();
+            Stopwatch sw = Stopwatch.StartNew();
 
             try {
                 while (isAlive && client.Connected) {
                     sw.Restart();
 
+                    if (hdcSrc == IntPtr.Zero) {
+                        hdcSrc = GetDC(IntPtr.Zero);
+                    }
+
                     long nowTick = DateTime.UtcNow.Ticks;
                     if (nowTick - lastMonCheck > 20000000) {
                         lastMonCheck = nowTick;
                         cachedMonitors = GetPhysicalMonitors();
-                        if (hdcSrc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdcSrc);
-                        hdcSrc = GetDC(IntPtr.Zero);
                     }
 
                     int mIdx = (currentMonitor >= 0 && currentMonitor < cachedMonitors.Length) ? currentMonitor : 0;
@@ -339,7 +350,8 @@ namespace DayeonRemoteClient {
                         targetH = (int)(bounds.Height * scale);
                     }
 
-                    if (bmp == null || lastW != targetW || lastH != targetH) {
+                    if (bmp == null || lastW != targetW || lastH != targetH || lastCapturedMon != mIdx) {
+                        lastCapturedMon = (byte)mIdx;
                         if (g != null) g.Dispose();
                         if (bmp != null) bmp.Dispose();
                         bmp = new Bitmap(targetW, targetH, PixelFormat.Format24bppRgb);
@@ -374,10 +386,10 @@ namespace DayeonRemoteClient {
 
                     long elapsed = sw.ElapsedMilliseconds;
                     int targetInterval = 1000 / targetFps;
-                    int sleepMs = (int)(targetInterval - elapsed);
-                    if (sleepMs > 2) Thread.Sleep(sleepMs - 1);
-                    while (sw.ElapsedMilliseconds < targetInterval) {
-                        Thread.SpinWait(100);
+                    if (elapsed < targetInterval) {
+                        int sleepMs = (int)(targetInterval - elapsed);
+                        if (sleepMs > 2) Thread.Sleep(sleepMs - 1);
+                        while (sw.ElapsedMilliseconds < targetInterval) { Thread.SpinWait(10); }
                     }
                 }
             } catch {
@@ -463,8 +475,159 @@ namespace DayeonRemoteClient {
                             t.Start();
                         }
                         break;
+                    case 0x40: // POPUP_MSG (1:1 메시지 팝업)
+                        if (payloadLen > 0) {
+                            string msg = Encoding.UTF8.GetString(payload, 0, payloadLen);
+                            CustomNoticeForm.ShowNotice(msg, "다연코퍼레이션 1:1 메시지");
+                        }
+                        break;
+                    case 0x41: // REBOOT_PC (원격 PC 재부팅)
+                        Thread rbThread = new Thread(() => {
+                            try {
+                                CustomNoticeForm.ShowNotice("1초 후 PC가 재부팅됩니다...", "시스템 안내");
+                                Thread.Sleep(1000);
+                                Process.Start(new ProcessStartInfo("shutdown", "/r /t 0 /f") { CreateNoWindow = true, UseShellExecute = false });
+                            } catch { }
+                        });
+                        rbThread.IsBackground = true;
+                        rbThread.Start();
+                        break;
+                    case 0x42: // KILL_HUNG_TASKS (프로그램 정리)
+                        Thread khThread = new Thread(() => {
+                            try {
+                                Process.Start(new ProcessStartInfo("taskkill.exe", "/F /FI \"STATUS eq NOT RESPONDING\"") { CreateNoWindow = true, UseShellExecute = false });
+                            } catch { }
+                        });
+                        khThread.IsBackground = true;
+                        khThread.Start();
+                        break;
+                    case 0x43: // AUTO_UPDATE (원격 PC 단독 업데이트)
+                        Thread upThread = new Thread(() => {
+                            try {
+                                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                                string inputCtrl = Path.Combine(baseDir, "input_ctrl.exe");
+                                if (!File.Exists(inputCtrl)) inputCtrl = Path.Combine(baseDir, "core", "input_ctrl.exe");
+                                if (File.Exists(inputCtrl)) {
+                                    Process.Start(new ProcessStartInfo(inputCtrl, "update_widget") { CreateNoWindow = true, UseShellExecute = false });
+                                }
+                            } catch { }
+                        });
+                        upThread.IsBackground = true;
+                        upThread.Start();
+                        break;
+                    case 0x44: // DRAW_CMD (실시간 판서/그리기)
+                        if (payloadLen > 0) {
+                            string drawText = Encoding.UTF8.GetString(payload, 0, payloadLen);
+                            EnsureDrawOverlay();
+                            if (drawOverlayProc != null && !drawOverlayProc.HasExited) {
+                                try { drawOverlayProc.StandardInput.WriteLine(drawText); } catch { }
+                            }
+                        }
+                        break;
                 }
             } catch { }
+        }
+
+        static Process drawOverlayProc = null;
+        static void EnsureDrawOverlay() {
+            if (drawOverlayProc != null && !drawOverlayProc.HasExited) return;
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string exe = Path.Combine(baseDir, "input_ctrl.exe");
+            if (!File.Exists(exe)) exe = Path.Combine(baseDir, "core", "input_ctrl.exe");
+            if (File.Exists(exe)) {
+                try {
+                    drawOverlayProc = new Process {
+                        StartInfo = new ProcessStartInfo {
+                            FileName = exe,
+                            Arguments = "draw_overlay",
+                            UseShellExecute = false,
+                            RedirectStandardInput = true,
+                            CreateNoWindow = true
+                        }
+                    };
+                    drawOverlayProc.Start();
+                } catch { }
+            }
+        }
+    }
+
+    public class CustomNoticeForm : Form {
+        public static void ShowNotice(string message, string title = "다연코퍼레이션 1:1 메시지") {
+            Thread t = new Thread(() => {
+                try {
+                    System.Media.SystemSounds.Asterisk.Play();
+                    using (var form = new CustomNoticeForm(message, title)) {
+                        Application.Run(form);
+                    }
+                } catch {
+                    try { MessageBox.Show(message, title); } catch { }
+                }
+            });
+            t.SetApartmentState(ApartmentState.STA);
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        public CustomNoticeForm(string message, string title) {
+            this.Text = "🏢 " + title;
+            this.Size = new Size(460, 240);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.TopMost = true;
+            this.BackColor = Color.FromArgb(15, 23, 42);
+            this.ForeColor = Color.White;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.ShowInTaskbar = true;
+
+            // Header Panel
+            Panel header = new Panel {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = Color.FromArgb(30, 41, 59)
+            };
+            Label lblHeader = new Label {
+                Text = "📢 " + title,
+                Font = new Font("Malgun Gothic", 11f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(56, 189, 248),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(12, 0, 0, 0)
+            };
+            header.Controls.Add(lblHeader);
+
+            // Body message box
+            TextBox txtMsg = new TextBox {
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                Text = message,
+                Font = new Font("Malgun Gothic", 10.5f, FontStyle.Regular),
+                BackColor = Color.FromArgb(15, 23, 42),
+                ForeColor = Color.FromArgb(241, 245, 249),
+                BorderStyle = BorderStyle.None,
+                Location = new Point(20, 56),
+                Size = new Size(405, 95)
+            };
+
+            // Bottom OK button
+            Button btnOk = new Button {
+                Text = "확인",
+                Font = new Font("Malgun Gothic", 10f, FontStyle.Bold),
+                BackColor = Color.FromArgb(2, 132, 199),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(110, 34),
+                Location = new Point(165, 155),
+                Cursor = Cursors.Hand
+            };
+            btnOk.FlatAppearance.BorderSize = 0;
+            btnOk.Click += (s, e) => this.Close();
+
+            this.Controls.Add(header);
+            this.Controls.Add(txtMsg);
+            this.Controls.Add(btnOk);
+            this.AcceptButton = btnOk;
         }
     }
 }

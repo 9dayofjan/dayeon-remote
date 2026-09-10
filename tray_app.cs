@@ -123,13 +123,24 @@ class TrayApp : Form {
                 }
             } catch { }
 
-            // 2. 시작프로그램 폴더에 혹시 남아있을 수 있는 구형 .bat 파일들 완전 삭제 (검은창 및 인코딩 오류 차단)
+            // 2. 시작프로그램 폴더에 바로가기 (.lnk) 생성 (이중 안전 자동실행 보장)
             try {
                 string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
                 if (Directory.Exists(startupFolder)) {
                     string batPath = Path.Combine(startupFolder, "DayeonCorpAutoStart.bat");
                     if (File.Exists(batPath)) {
                         try { File.Delete(batPath); } catch { }
+                    }
+
+                    string lnkPath = Path.Combine(startupFolder, "다연코퍼레이션.lnk");
+                    Type t = Type.GetTypeFromProgID("WScript.Shell");
+                    if (t != null) {
+                        dynamic shell = Activator.CreateInstance(t);
+                        var shortcut = shell.CreateShortcut(lnkPath);
+                        shortcut.TargetPath = exePath;
+                        shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
+                        shortcut.Description = "다연코퍼레이션 원격 제어 수신 프로그램";
+                        shortcut.Save();
                     }
                 }
             } catch { }
@@ -295,30 +306,37 @@ class TrayApp : Form {
 
             string nodeExe = Path.Combine(coreDir, "node.exe");
             if (!File.Exists(nodeExe)) nodeExe = Path.Combine(baseDir, "node.exe");
-            if (!File.Exists(nodeExe)) nodeExe = "node.exe";
+            if (!File.Exists(nodeExe)) {
+                string pfNode = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs", "node.exe");
+                if (File.Exists(pfNode)) nodeExe = pfNode;
+            }
 
             string scriptName = (mode == "server") ? "server.js" : "agent.js";
             string scriptPath = Path.Combine(coreDir, scriptName);
             if (!File.Exists(scriptPath)) scriptPath = Path.Combine(baseDir, scriptName);
 
-            ProcessStartInfo psi = new ProcessStartInfo();
-            psi.FileName = nodeExe;
-            psi.Arguments = "\"" + scriptPath + "\"";
-            psi.WorkingDirectory = coreDir;
-            psi.CreateNoWindow = true;
-            psi.UseShellExecute = false;
-            psi.WindowStyle = ProcessWindowStyle.Hidden;
+            if (File.Exists(nodeExe) && File.Exists(scriptPath)) {
+                try {
+                    ProcessStartInfo psi = new ProcessStartInfo();
+                    psi.FileName = nodeExe;
+                    psi.Arguments = "\"" + scriptPath + "\"";
+                    psi.WorkingDirectory = Path.GetDirectoryName(scriptPath);
+                    psi.CreateNoWindow = true;
+                    psi.UseShellExecute = false;
+                    psi.WindowStyle = ProcessWindowStyle.Hidden;
 
-            childProcess = Process.Start(psi);
-            childProcess.EnableRaisingEvents = true;
-            childProcess.Exited += (s, e) => {
-                if (!isExiting) {
-                    Thread.Sleep(1000);
-                    StartBackendProcess();
-                }
-            };
-        } catch (Exception ex) {
-            MessageBox.Show("프로그램 시작 중 오류가 발생했습니다: " + ex.Message, appTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    childProcess = Process.Start(psi);
+                    childProcess.EnableRaisingEvents = true;
+                    childProcess.Exited += (s, e) => {
+                        if (!isExiting) {
+                            Thread.Sleep(1000);
+                            StartBackendProcess();
+                        }
+                    };
+                } catch { }
+            }
+        } catch {
+            // 조용히 백그라운드 구동 유지 (재부팅 시 팝업 에러 방지)
         }
     }
 
