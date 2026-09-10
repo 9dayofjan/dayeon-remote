@@ -680,17 +680,32 @@ console.log('==================================================\n');
         // 60초 주기 체크와 수동 'update' 명령이 거의 동시에 들어오면 두 개의
         // performUpdate가 동시에 실행되어 같은 파일을 이중으로 다운로드/치환할 수 있었다.
         isUpdating = true;
+        let versionCheckSettled = false;
+        // 🌟 keep-alive 커넥션 풀(httpAgent)이 이전에 끊기다 만 소켓들로 꽉 차면
+        // 새 요청이 소켓을 배정받는 단계에서 그냥 무한 대기하며, 이 경우 request의
+        // timeout 옵션조차 발동하지 않는다(소켓이 배정된 이후 구간에만 적용되는
+        // 타이머라서). agent:false로 매번 새 연결을 쓰고, 별도의 강제 타이머로
+        // 어떤 단계에서 멎든 반드시 풀려나도록 이중 보장한다.
+        const versionCheckHardTimer = setTimeout(() => {
+            if (versionCheckSettled) return;
+            versionCheckSettled = true;
+            try { req.destroy(); } catch (e) {}
+            isUpdating = false;
+        }, 5000);
         const req = netModule.request({
             hostname: targetHost,
             port: targetPort,
             path: '/api/version',
             method: 'GET',
-            agent: httpAgent,
+            agent: false,
             timeout: 3000
         }, (res) => {
             let body = '';
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
+                if (versionCheckSettled) return;
+                versionCheckSettled = true;
+                clearTimeout(versionCheckHardTimer);
                 try {
                     const serverVer = JSON.parse(body);
                     const localVerFile = path.join(__dirname, 'version.json');
@@ -710,10 +725,13 @@ console.log('==================================================\n');
                 }
             });
         });
-        req.on('error', () => { isUpdating = false; });
-        // 🌟 timeout 옵션은 이벤트만 발생시킬 뿐 소켓을 자동으로 끊지 않으므로,
-        // 핸들러 없이 방치하면 연결이 멎었을 때 요청이 무한 대기 상태가 된다.
-        req.on('timeout', () => { req.destroy(new Error('version check timeout')); isUpdating = false; });
+        req.on('error', () => {
+            if (versionCheckSettled) return;
+            versionCheckSettled = true;
+            clearTimeout(versionCheckHardTimer);
+            isUpdating = false;
+        });
+        req.on('timeout', () => { req.destroy(new Error('version check timeout')); });
         req.end();
     }
 
@@ -721,18 +739,42 @@ console.log('==================================================\n');
         return new Promise((resolve, reject) => {
             const tempPath = path.join(destDir, fileName);
             const fileStream = fs.createWriteStream(tempPath);
+            let settled = false;
+
+            const settleResolve = () => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(hardTimer);
+                fileStream.close(() => resolve(tempPath));
+            };
+            const settleReject = (err) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(hardTimer);
+                try { fileStream.close(); } catch (e) {}
+                try { fs.unlinkSync(tempPath); } catch (e) {}
+                reject(err);
+            };
+
+            // 🌟 agent:false로 매번 새 소켓을 써서, 예전 요청들이 남겨둔 keep-alive
+            // 풀 고갈로 인해 "소켓 배정 대기" 단계에서 영원히 멎는 것을 막는다.
+            // 그리고 어느 단계(연결/전송/응답)에서 멎든 반드시 15초 안에 풀려나도록
+            // request의 timeout 옵션과 별개로 강제 타이머를 하나 더 건다.
+            const hardTimer = setTimeout(() => {
+                settleReject(new Error('Download hard-timeout: ' + fileName));
+                try { req.destroy(); } catch (e) {}
+            }, 15000);
+
             const req = netModule.request({
                 hostname: targetHost,
                 port: targetPort,
                 path: `/api/update/file?name=${encodeURIComponent(fileName)}`,
                 method: 'GET',
-                agent: httpAgent,
+                agent: false,
                 timeout: 15000
             }, (res) => {
                 if (res.statusCode !== 200) {
-                    fileStream.close();
-                    try { fs.unlinkSync(tempPath); } catch(e) {}
-                    return reject(new Error('Download failed: ' + res.statusCode));
+                    return settleReject(new Error('Download failed: ' + res.statusCode));
                 }
                 const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
                 let curBytes = 0;
@@ -741,20 +783,10 @@ console.log('==================================================\n');
                     if (onProgress) onProgress(chunk.length, curBytes, totalBytes);
                 });
                 res.pipe(fileStream);
-                fileStream.on('finish', () => {
-                    fileStream.close(() => resolve(tempPath));
-                });
+                fileStream.on('finish', settleResolve);
             });
-            req.on('error', (err) => {
-                fileStream.close();
-                try { fs.unlinkSync(tempPath); } catch(e) {}
-                reject(err);
-            });
-            // 🌟 연결/응답이 모두 멈춘 무응답 상태를 실제로 끊어서 Promise.all이
-            // 영원히 대기하지 않도록 한다. (이것이 위젯이 [0%]에서 멈추는 근본 원인)
-            req.on('timeout', () => {
-                req.destroy(new Error('Download timeout: ' + fileName));
-            });
+            req.on('error', (err) => { settleReject(err); });
+            req.on('timeout', () => { req.destroy(new Error('Download timeout: ' + fileName)); });
             req.end();
         });
     }
