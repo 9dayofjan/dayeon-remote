@@ -60,6 +60,42 @@ function showNoticeToast(msg, duration = 3000) {
     }
 }
 
+// 🌟 60 FPS 네이티브 초고속 화면 스트리밍 엔진(DayeonClient / 포트 8888) 자동 상주 보장
+function ensureDayeonNativeServer() {
+    const candidates = [
+        path.join(__dirname, '다연원격_클라이언트.exe'),
+        path.join(__dirname, 'DayeonClient.exe'),
+        path.join(__dirname, '..', '다연원격_클라이언트.exe'),
+        path.join(__dirname, '..', 'DayeonClient.exe')
+    ];
+    let exeToRun = null;
+    for (const p of candidates) {
+        if (fs.existsSync(p)) { exeToRun = p; break; }
+    }
+    if (!exeToRun) return;
+
+    const testSock = new net.Socket();
+    testSock.setTimeout(300);
+    testSock.on('connect', () => { testSock.destroy(); });
+    testSock.on('error', () => {
+        testSock.destroy();
+        try {
+            console.log('🚀 [60 FPS 네이티브 엔진] 백그라운드 자동 기동:', exeToRun);
+            spawn(exeToRun, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        } catch(e) {}
+    });
+    testSock.on('timeout', () => {
+        testSock.destroy();
+        try {
+            console.log('🚀 [60 FPS 네이티브 엔진] 백그라운드 자동 기동:', exeToRun);
+            spawn(exeToRun, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        } catch(e) {}
+    });
+    testSock.connect(8888, '127.0.0.1');
+}
+setInterval(ensureDayeonNativeServer, 5000);
+ensureDayeonNativeServer();
+
 // 🌟 시작 시 업데이트 완료 토스트 자동 출력
 const updateFlagFile = path.join(__dirname, 'update_temp_done.flag');
 if (fs.existsSync(updateFlagFile)) {
@@ -301,12 +337,52 @@ console.log('==================================================\n');
         return Buffer.concat([header, maskedPayload]);
     }
 
+    const lanStreamClients = [];
     const latestMonitorFrames = {};
 
     try {
         lanServer = http.createServer((req, res) => {
             const urlObj = new URL(req.url, `http://localhost:${LAN_PORT}`);
             const pathname = urlObj.pathname;
+
+            if (pathname === '/api/stream') {
+                const reqMon = urlObj.searchParams.get('monitor') || targetMonitor || '0';
+                if (reqMon !== fastcapMonitor) {
+                    targetMonitor = reqMon;
+                    fastcapMonitor = reqMon;
+                    if (fastcapDaemon && fastcapDaemon.stdin && !fastcapDaemon.stdin.destroyed) {
+                        try { fastcapDaemon.stdin.write(`monitor ${fastcapMonitor}\n`); } catch(e) {}
+                    }
+                }
+                applyStreamFocusState(true);
+
+                res.writeHead(200, {
+                    'Content-Type': 'multipart/x-mixed-replace; boundary=--frame',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Connection': 'close',
+                    'Pragma': 'no-cache'
+                });
+
+                const sc = { res, monitor: reqMon };
+                lanStreamClients.push(sc);
+
+                if (latestCapturedFrame) {
+                    try {
+                        res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestCapturedFrame.length}\r\n\r\n`);
+                        res.write(latestCapturedFrame);
+                        res.write('\r\n');
+                    } catch(e) {}
+                }
+
+                req.on('close', () => {
+                    const idx = lanStreamClients.indexOf(sc);
+                    if (idx !== -1) lanStreamClients.splice(idx, 1);
+                    if (lanStreamClients.length === 0 && lanWsClients.length === 0) {
+                        applyStreamFocusState(false);
+                    }
+                });
+                return;
+            }
 
             if (pathname === '/api/snapshot') {
                 const reqMon = urlObj.searchParams.get('monitor') || targetMonitor || '0';
@@ -480,6 +556,19 @@ console.log('==================================================\n');
                             latestMonitorFrames[monIdx.toString()] = jpegBuf;
                             fastcapMonitor = monIdx.toString();
 
+                            // 0. 사내 LAN HTTP MJPEG 스트림 클라이언트 (60 FPS 초고속 방송)
+                            if (lanStreamClients.length > 0) {
+                                for (const sc of lanStreamClients) {
+                                    if (sc.res && !sc.res.writableEnded) {
+                                        try {
+                                            sc.res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpegBuf.length}\r\n\r\n`);
+                                            sc.res.write(jpegBuf);
+                                            sc.res.write('\r\n');
+                                        } catch(e) {}
+                                    }
+                                }
+                            }
+
                             // 1. 사내 LAN 클라이언트 0ms 브로드캐스트
                             if (lanWsClients.length > 0) {
                                 const wsFrame = makeWsBinaryFrame(jpegBuf);
@@ -569,24 +658,15 @@ console.log('==================================================\n');
     function showNoticePopup(msg) {
         if (!msg) return;
 
-        const inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
+        let inputCtrlPath = path.join(__dirname, 'input_ctrl.exe');
+        if (!fs.existsSync(inputCtrlPath)) inputCtrlPath = path.join(__dirname, '..', 'input_ctrl.exe');
+        if (!fs.existsSync(inputCtrlPath)) inputCtrlPath = path.join(__dirname, '..', 'core', 'input_ctrl.exe');
+
         if (fs.existsSync(inputCtrlPath)) {
             try {
                 spawn(inputCtrlPath, ['popup', msg], { detached: true, stdio: 'ignore' }).unref();
-                return;
             } catch(e) {}
         }
-
-        // input_ctrl.exe가 없을 때만 안전용 Fallback
-        const cleanMsg = msg.replace(/"/g, '""');
-        const vbs = `MsgBox "${cleanMsg}", 4096 + 64, "🏢 다연코퍼레이션 관리자 공지"`;
-        const tmp = path.join(os.tmpdir(), `dayeon_msg_${Date.now()}.vbs`);
-        try {
-            fs.writeFileSync(tmp, '\ufeff' + vbs, 'utf16le');
-            execFile('wscript.exe', [tmp], () => {
-                try { fs.unlinkSync(tmp); } catch(e) {}
-            });
-        } catch(e) {}
     }
 
     let isUpdating = false;
@@ -799,6 +879,11 @@ console.log('==================================================\n');
             try { if (inputCtrlProcess) inputCtrlProcess.kill(); } catch(e) {}
             try { if (fastcapDaemon) fastcapDaemon.kill(); } catch(e) {}
             setTimeout(() => { process.exit(0); }, 200);
+            return;
+        }
+
+        if (type === 'start_native' || type === 'start_dayeon_client') {
+            ensureDayeonNativeServer();
             return;
         }
 
