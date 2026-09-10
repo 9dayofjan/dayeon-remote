@@ -112,6 +112,7 @@ public class RemoteViewerForm : Form {
     private Button btnReboot;
     private Button btnSingleUpdate;
     private Button btnRecord;
+    private Button btnRecordAll;
     private Label lblFps;
 
     private DoubleBufferedPanel renderCanvas;
@@ -519,10 +520,15 @@ public class RemoteViewerForm : Form {
         };
         topBar.Controls.Add(btnSingleUpdate);
 
-        btnRecord = CreateModernBtn("● 녹화", Color.FromArgb(51, 65, 85), 0, 7, 85);
+        btnRecord = CreateModernBtn("녹화", Color.FromArgb(51, 65, 85), 0, 7, 60);
         btnRecord.Visible = false;
         btnRecord.Click += (s, e) => ToggleRecordingForCurrent();
         topBar.Controls.Add(btnRecord);
+
+        btnRecordAll = CreateModernBtn("전체녹화", Color.FromArgb(51, 65, 85), 0, 7, 75);
+        btnRecordAll.Visible = false;
+        btnRecordAll.Click += (s, e) => ToggleRecordAllForCurrent();
+        topBar.Controls.Add(btnRecordAll);
 
         lblFps = new Label {
             Text = "60 FPS",
@@ -615,6 +621,8 @@ public class RemoteViewerForm : Form {
         btnSingleUpdate.Location = new Point(xPos, 8);
         xPos += btnSingleUpdate.Width + 4;
         btnRecord.Location = new Point(xPos, 8);
+        xPos += btnRecord.Width + 4;
+        btnRecordAll.Location = new Point(xPos, 8);
     }
 
     private Button CreateModernBtn(string text, Color bg, int x, int y, int width) {
@@ -1474,6 +1482,7 @@ public class RemoteViewerForm : Form {
         btnDrawClear.Visible = isDrawingMode;
         btnSendMsg.Visible = btnSendFile.Visible = btnKillTask.Visible = btnReboot.Visible = btnSingleUpdate.Visible = true;
         btnRecord.Visible = true;
+        btnRecordAll.Visible = true;
         UpdateRecordButtonUi();
 
         UpdateMonitorButtons();
@@ -1555,6 +1564,7 @@ public class RemoteViewerForm : Form {
         btnDrawClear.Visible = false;
         btnSendMsg.Visible = btnSendFile.Visible = btnKillTask.Visible = btnReboot.Visible = btnSingleUpdate.Visible = false;
         btnRecord.Visible = false;
+        btnRecordAll.Visible = false;
 
         renderCanvas.BringToFront();
         RepositionToolbarButtons();
@@ -1831,13 +1841,43 @@ public class RemoteViewerForm : Form {
         UpdateRecordButtonUi();
     }
 
-    private void UpdateRecordButtonUi() {
-        if (btnRecord == null || !btnRecord.Visible) return;
+    private static readonly string[] ALL_MONITOR_SLOTS = { "0", "1", "2" };
+
+    private void ToggleRecordAllForCurrent() {
         if (string.IsNullOrEmpty(currentZoomPcId)) return;
-        string key = currentZoomPcId + "|" + (currentMonitorIdx ?? "0");
-        bool recording = activeRecordings.ContainsKey(key);
-        btnRecord.Text = recording ? "■ 녹화 중지" : "● 녹화";
-        btnRecord.BackColor = recording ? Color.FromArgb(220, 38, 38) : Color.FromArgb(51, 65, 85);
+        string pcId = currentZoomPcId;
+
+        bool allRecording = ALL_MONITOR_SLOTS.All(m => activeRecordings.ContainsKey(pcId + "|" + m));
+        if (allRecording) {
+            foreach (var m in ALL_MONITOR_SLOTS) {
+                StopRecording(pcId + "|" + m);
+            }
+        } else {
+            foreach (var m in ALL_MONITOR_SLOTS) {
+                if (!activeRecordings.ContainsKey(pcId + "|" + m)) {
+                    StartRecording(pcId, m);
+                }
+            }
+        }
+        UpdateRecordButtonUi();
+    }
+
+    private void UpdateRecordButtonUi() {
+        if (string.IsNullOrEmpty(currentZoomPcId)) return;
+
+        if (btnRecord != null && btnRecord.Visible) {
+            string key = currentZoomPcId + "|" + (currentMonitorIdx ?? "0");
+            bool recording = activeRecordings.ContainsKey(key);
+            btnRecord.Text = recording ? "중지" : "녹화";
+            btnRecord.BackColor = recording ? Color.FromArgb(220, 38, 38) : Color.FromArgb(51, 65, 85);
+        }
+
+        if (btnRecordAll != null && btnRecordAll.Visible) {
+            string pcId = currentZoomPcId;
+            bool allRecording = ALL_MONITOR_SLOTS.All(m => activeRecordings.ContainsKey(pcId + "|" + m));
+            btnRecordAll.Text = allRecording ? "전체중지" : "전체녹화";
+            btnRecordAll.BackColor = allRecording ? Color.FromArgb(220, 38, 38) : Color.FromArgb(51, 65, 85);
+        }
     }
 
     private static string SanitizeFileName(string name) {
