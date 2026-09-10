@@ -607,7 +607,7 @@ namespace DayeonRemoteClient {
             header.MouseDown += dragHandler;
 
             Label lblHeader = new Label {
-                Text = "🏢  " + title,
+                Text = title,
                 Font = new Font("Malgun Gothic", 11.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(125, 211, 252),
                 Dock = DockStyle.Fill,
