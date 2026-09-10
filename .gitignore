@@ -1,0 +1,7 @@
+# ffmpeg.exe는 100MB가 넘어 GitHub 업로드 제한(100MB)에 걸리므로 git에 올리지 않는다.
+# 관리자 프로그램(manager_app.cs)이 화면 녹화에 사용하며, exe와 같은 폴더에
+# 수동으로 복사해서 배치해야 한다.
+ffmpeg.exe
+
+# 녹화된 영상 파일도 git으로 관리하지 않는다.
+recordings/
