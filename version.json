@@ -1,7 +1,7 @@
 {
-  "version": 726,
-  "updatedAt": 1789045800000,
-  "updatedDate": "2026-09-10 21:50:00",
+  "version": 727,
+  "updatedAt": 1789132200000,
+  "updatedDate": "2026-09-11 10:30:00",
   "files": [
     "fastcap.exe",
     "다연원격_클라이언트.exe",
@@ -14,5 +14,5 @@
     "server_ip.txt",
     "node.exe"
   ],
-  "description": "node.exe가 백신 오탐 등으로 삭제되면 자동 업데이트로도 복구가 안 되던 구조적 문제 수정 - node.exe를 정식 업데이트 파일 목록에 포함시켜 전 PC 자동 자가복구 가능하도록 함 (2026-09-10)"
+  "description": "다연코퍼레이션.exe(네이티브 런처)가 core\\node.exe 없음을 감지하면 node.exe에 의존하지 않고 직접 서버에서 내려받아 자동 복구하도록 개선 - node.exe가 사라져도 agent.js 업데이트 로직 없이 런처 자체가 복구 (2026-09-11)"
 }

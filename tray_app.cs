@@ -311,6 +311,20 @@ class TrayApp : Form {
                 if (File.Exists(pfNode)) nodeExe = pfNode;
             }
 
+            if (!File.Exists(nodeExe)) {
+                // 🌟 node.exe가 (백신 오탐 등으로) 어디에도 없으면 agent.js/server.js
+                // 자체가 실행될 방법이 없고, 그 안의 자동 업데이트 로직조차 못 돌아간다.
+                // node.exe 없이도 동작하는 이 네이티브 런처가 직접 node.exe를 내려받아
+                // 복구한 뒤 재시도하도록 한다 (수동 스크립트 실행이 필요 없도록).
+                string coreDirCapture = coreDir;
+                new Thread(() => {
+                    bool ok = DownloadNodeExe(coreDirCapture);
+                    Thread.Sleep(ok ? 500 : 60000);
+                    if (!isExiting) StartBackendProcess();
+                }).Start();
+                return;
+            }
+
             string scriptName = (mode == "server") ? "server.js" : "agent.js";
             string scriptPath = Path.Combine(coreDir, scriptName);
             if (!File.Exists(scriptPath)) scriptPath = Path.Combine(baseDir, scriptName);
@@ -338,6 +352,47 @@ class TrayApp : Form {
         } catch {
             // 조용히 백그라운드 구동 유지 (재부팅 시 팝업 에러 방지)
         }
+    }
+
+    private bool DownloadNodeExe(string coreDir) {
+        try {
+            string nodeExePath = Path.Combine(coreDir, "node.exe");
+            if (File.Exists(nodeExePath)) return true;
+
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string serverUrl = "https://dayeon-remote.onrender.com";
+            try {
+                string ipFile = Path.Combine(coreDir, "server_ip.txt");
+                if (!File.Exists(ipFile)) ipFile = Path.Combine(baseDir, "server_ip.txt");
+                if (File.Exists(ipFile)) {
+                    string raw = File.ReadAllText(ipFile).Trim();
+                    if (!string.IsNullOrEmpty(raw)) {
+                        serverUrl = (raw.StartsWith("http://") || raw.StartsWith("https://"))
+                            ? raw.TrimEnd('/')
+                            : ("http://" + raw.TrimEnd('/'));
+                    }
+                }
+            } catch { }
+
+            if (!Directory.Exists(coreDir)) Directory.CreateDirectory(coreDir);
+            string tempPath = nodeExePath + ".downloading";
+
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    using (var wc = new System.Net.WebClient()) {
+                        wc.DownloadFile(serverUrl + "/api/update/file?name=node.exe", tempPath);
+                    }
+                    if (File.Exists(tempPath) && new FileInfo(tempPath).Length > 1024 * 1024) {
+                        if (File.Exists(nodeExePath)) { try { File.Delete(nodeExePath); } catch { } }
+                        File.Move(tempPath, nodeExePath);
+                        return true;
+                    }
+                } catch { }
+                Thread.Sleep(3000);
+            }
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            return false;
+        } catch { return false; }
     }
 
     private void StartTunnelProcess() {
